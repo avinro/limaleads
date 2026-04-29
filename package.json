@@ -9,6 +9,7 @@
   "scripts": {
     "test": "vitest run",
     "dev": "tsx src/index.ts",
+    "gmail:auth": "tsx src/scripts/gmailAuth.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
@@ -32,6 +33,9 @@
     "vitest": "^4.1.5"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.105.1"
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.105.1",
+    "dotenv": "^17.4.2",
+    "googleapis": "^171.4.0"
   }
 }
