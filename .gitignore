@@ -1,0 +1,18 @@
+# Environment variables — never commit real keys
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+out/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
