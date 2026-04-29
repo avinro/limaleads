@@ -58,7 +58,10 @@ returns trigger
 language plpgsql
 as $$
 begin
-  new.updated_at = now();
+  -- clock_timestamp() returns wall-clock time, unlike now() which returns
+  -- the transaction start time and would be identical to created_at when
+  -- INSERT and UPDATE run in the same transaction.
+  new.updated_at = clock_timestamp();
   return new;
 end;
 $$;
