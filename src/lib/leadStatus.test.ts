@@ -92,9 +92,9 @@ describe('transitionLeadStatus', () => {
     it('throws before calling Supabase when actor is manual and reason is missing', async () => {
       const rpc = mockRpc({ data: null, error: null });
 
-      await expect(
-        transitionLeadStatus('lead-uuid', 'disqualified', 'manual'),
-      ).rejects.toThrow('reason is required for manual transitions');
+      await expect(transitionLeadStatus('lead-uuid', 'disqualified', 'manual')).rejects.toThrow(
+        'reason is required for manual transitions',
+      );
 
       expect(rpc).not.toHaveBeenCalled();
     });
@@ -114,9 +114,9 @@ describe('transitionLeadStatus', () => {
     it('throws when Supabase returns an RPC error', async () => {
       mockRpc({ data: null, error: { message: 'Invalid transition: new -> exhausted' } });
 
-      await expect(
-        transitionLeadStatus('lead-uuid', 'exhausted', 'system'),
-      ).rejects.toThrow('transition_lead_status RPC failed: Invalid transition: new -> exhausted');
+      await expect(transitionLeadStatus('lead-uuid', 'exhausted', 'system')).rejects.toThrow(
+        'transition_lead_status RPC failed: Invalid transition: new -> exhausted',
+      );
     });
   });
 });
