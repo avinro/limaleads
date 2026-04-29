@@ -78,9 +78,7 @@ describe('apolloClient', () => {
     });
 
     it('returns empty people array when API returns no people field', async () => {
-      vi.mocked(fetch).mockResolvedValueOnce(
-        new Response(JSON.stringify({}), { status: 200 }),
-      );
+      vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
 
       const result = await searchPeople({});
       expect(result.people).toEqual([]);
@@ -122,9 +120,7 @@ describe('apolloClient', () => {
     });
 
     it('returns null when API response has no person field', async () => {
-      vi.mocked(fetch).mockResolvedValueOnce(
-        new Response(JSON.stringify({}), { status: 200 }),
-      );
+      vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
 
       const result = await enrichPerson('apollo-id-1');
       expect(result).toBeNull();

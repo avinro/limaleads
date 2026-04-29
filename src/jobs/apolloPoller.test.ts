@@ -100,7 +100,9 @@ describe('apolloPoller', () => {
     vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson());
 
     const db = makeSupabaseMock({ data: { id: 'lead-uuid-1' }, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     const summary = await runApolloPoller();
 
@@ -111,7 +113,11 @@ describe('apolloPoller', () => {
     expect(summary.skipped).toBe(0);
 
     expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid-1', 'new', 'system');
-    expect(logJob).toHaveBeenCalledWith('apollo-poller', 'success', expect.objectContaining({ created: 1 }));
+    expect(logJob).toHaveBeenCalledWith(
+      'apollo-poller',
+      'success',
+      expect.objectContaining({ created: 1 }),
+    );
   });
 
   it('counts duplicate when INSERT returns null (ON CONFLICT DO NOTHING)', async () => {
@@ -121,7 +127,9 @@ describe('apolloPoller', () => {
     vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson());
 
     const db = makeSupabaseMock({ data: null, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     const summary = await runApolloPoller();
 
@@ -132,11 +140,15 @@ describe('apolloPoller', () => {
 
   it('skips a lead when has_email is false (no enrich call)', async () => {
     vi.mocked(searchPeople).mockResolvedValueOnce(
-      makeSearchPage([makeSearchPerson({ has_email: false })]) as Awaited<ReturnType<typeof searchPeople>>,
+      makeSearchPage([makeSearchPerson({ has_email: false })]) as Awaited<
+        ReturnType<typeof searchPeople>
+      >,
     );
 
     const db = makeSupabaseMock({ data: null, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     const summary = await runApolloPoller();
 
@@ -152,7 +164,9 @@ describe('apolloPoller', () => {
     vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson({ email: null }));
 
     const db = makeSupabaseMock({ data: null, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     const summary = await runApolloPoller();
 
@@ -167,7 +181,9 @@ describe('apolloPoller', () => {
     vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson({ organization: null }));
 
     const db = makeSupabaseMock({ data: null, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     const summary = await runApolloPoller();
 
@@ -187,7 +203,9 @@ describe('apolloPoller', () => {
       .mockResolvedValueOnce(makeEnrichedPerson());
 
     const db = makeSupabaseMock({ data: { id: 'lead-uuid-2' }, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     const summary = await runApolloPoller();
 
@@ -204,7 +222,9 @@ describe('apolloPoller', () => {
     vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson());
 
     const db = makeSupabaseMock({ data: { id: 'lead-uuid-3' }, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     await runApolloPoller();
 
@@ -219,7 +239,9 @@ describe('apolloPoller', () => {
     );
 
     const db = makeSupabaseMock({ data: null, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(db as unknown as ReturnType<typeof getSupabaseClient>);
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
 
     await runApolloPoller();
 

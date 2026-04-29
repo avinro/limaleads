@@ -1,5 +1,9 @@
 import { getSupabaseClient } from '../db/client';
-import { type ApolloSourceCriteria, enrichPerson, searchPeople } from '../integrations/apolloClient';
+import {
+  type ApolloSourceCriteria,
+  enrichPerson,
+  searchPeople,
+} from '../integrations/apolloClient';
 import { logJob } from '../lib/logger';
 import { transitionLeadStatus } from '../lib/leadStatus';
 import { runWithRetry } from '../lib/retry';
@@ -99,10 +103,11 @@ export async function runApolloPoller(): Promise<PollSummary> {
 
     while (hasMore) {
       // Fetch one page of search results — retried on transient errors.
-      const searchPage = await runWithRetry(
-        () => searchPeople(criteria, page, DEFAULT_PER_PAGE),
-        { maxAttempts: MAX_ATTEMPTS, backoffMs: BACKOFF_MS, jobType: JOB_TYPE },
-      );
+      const searchPage = await runWithRetry(() => searchPeople(criteria, page, DEFAULT_PER_PAGE), {
+        maxAttempts: MAX_ATTEMPTS,
+        backoffMs: BACKOFF_MS,
+        jobType: JOB_TYPE,
+      });
 
       const { people, pagination } = searchPage;
       summary.fetched += people.length;
@@ -116,10 +121,11 @@ export async function runApolloPoller(): Promise<PollSummary> {
         // Enrich to get full contact details — consumes one credit per call.
         let enriched;
         try {
-          enriched = await runWithRetry(
-            () => enrichPerson(person.id),
-            { maxAttempts: MAX_ATTEMPTS, backoffMs: BACKOFF_MS, jobType: JOB_TYPE },
-          );
+          enriched = await runWithRetry(() => enrichPerson(person.id), {
+            maxAttempts: MAX_ATTEMPTS,
+            backoffMs: BACKOFF_MS,
+            jobType: JOB_TYPE,
+          });
         } catch {
           summary.skipped += 1;
           continue;

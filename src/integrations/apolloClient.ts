@@ -123,13 +123,16 @@ export async function searchPeople(
 export async function enrichPerson(apolloId: string): Promise<ApolloEnrichedPerson | null> {
   const apiKey = getApiKey();
 
-  const response = await fetch(`${APOLLO_BASE_URL}/people/match?id=${encodeURIComponent(apolloId)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+  const response = await fetch(
+    `${APOLLO_BASE_URL}/people/match?id=${encodeURIComponent(apolloId)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`Apollo enrich failed: ${response.status} ${response.statusText}`);
