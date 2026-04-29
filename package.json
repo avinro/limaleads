@@ -10,6 +10,7 @@
     "test": "vitest run",
     "dev": "tsx src/index.ts",
     "build": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
