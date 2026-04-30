@@ -1,5 +1,5 @@
-// Gemini Flash client — generates personalized outreach emails from lead context.
-// Uses gemini-2.5-flash for speed and cost efficiency at MVP scale.
+// Gemini 2.5 Flash client — generates personalized outreach emails from lead context.
+// Uses the exact prompt structure defined in PRD Section 3.
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -8,10 +8,15 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // ---------------------------------------------------------------------------
 
 export interface LeadContext {
-  firstName: string;
-  lastName: string | null;
+  name: string | null;
   title: string | null;
   company: string | null;
+  linkedinUrl: string | null;
+  sourceCriteria: string | null;
+}
+
+export interface TemplateContext {
+  body: string;
 }
 
 export interface GeneratedEmail {
@@ -34,39 +39,84 @@ function getClient(): GoogleGenerativeAI {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt
+// Prompt — verbatim from PRD Section 3, no additions
 // ---------------------------------------------------------------------------
 
-function buildPrompt(lead: LeadContext, isFollowUp: number = 0): string {
-  const name = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
-  const role = lead.title ?? 'professional';
-  const company = lead.company ?? 'your company';
+function buildPrompt(lead: LeadContext, template: TemplateContext): string {
+  const name = lead.name ?? 'Unknown';
+  const title = lead.title ?? 'Unknown';
+  const company = lead.company ?? 'Unknown';
+  const linkedinUrl = lead.linkedinUrl ?? '';
+  const sourceCriteria = lead.sourceCriteria ?? '';
 
-  const followUpContext =
-    isFollowUp > 0
-      ? `This is follow-up number ${isFollowUp}. Keep it short, reference the previous email without repeating it, and add new value or a different angle.`
-      : 'This is the initial outreach email.';
+  return `System: You are a B2B sales assistant. Write concise, direct outreach emails.
+        Tone: professional but not stiff. Max 120 words. No filler phrases.
 
-  return `You are a senior sales consultant writing a cold outreach email on behalf of LimaLeads, a B2B sales intelligence platform that helps companies find and connect with decision-makers.
+Context:
+  Lead: ${name}, ${title} at ${company}
+  LinkedIn: ${linkedinUrl}
+  Source filter used: ${sourceCriteria}
 
-Lead details:
-- Name: ${name}
-- Title: ${role}
-- Company: ${company}
+Template:
+  ${template.body}
 
-${followUpContext}
+Task: Personalize the template for this lead.
+      Insert at least one specific, non-generic hook based on their title or company.
+      Output only the email body and subject line. No commentary.`;
+}
 
-Write a personalized, professional cold email. Requirements:
-- Subject line: concise, relevant, no clickbait
-- Body: 3-4 short paragraphs max
-- Tone: professional but conversational, not pushy
-- Personalize based on their role and company
-- End with a clear, low-friction call to action (e.g. a 15-minute call)
-- Do NOT use filler phrases like "I hope this email finds you well"
-- Do NOT use excessive exclamation marks
+// ---------------------------------------------------------------------------
+// Response parsing
+// ---------------------------------------------------------------------------
 
-Respond with ONLY a valid JSON object in this exact format, no markdown, no extra text:
-{"subject": "...", "body": "..."}`;
+/**
+ * Parses the Gemini response text into a GeneratedEmail.
+ *
+ * Attempts JSON parsing first (most reliable). Falls back to a Subject/body
+ * plain-text format in case the model ignores the template instructions and
+ * responds in prose. Throws if neither format is recognized.
+ */
+function parseResponse(text: string): GeneratedEmail {
+  const trimmed = text.trim();
+
+  // Strategy 1: JSON object
+  const candidates = [
+    trimmed,
+    // Strip markdown code fences if present
+    trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed: unknown = JSON.parse(candidate);
+
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        typeof (parsed as Record<string, unknown>).subject === 'string' &&
+        typeof (parsed as Record<string, unknown>).body === 'string'
+      ) {
+        const { subject, body } = parsed as GeneratedEmail;
+        return { subject, body };
+      }
+    } catch {
+      // not JSON — try next strategy
+    }
+  }
+
+  // Strategy 2: plain text with "Subject:" prefix on the first line
+  const subjectMatch = trimmed.match(/^Subject:\s*(.+)\n([\s\S]+)$/i);
+
+  if (subjectMatch) {
+    const subject = subjectMatch[1].trim();
+    const body = subjectMatch[2].trim();
+
+    if (subject && body) {
+      return { subject, body };
+    }
+  }
+
+  throw new Error(`Gemini returned unexpected format: ${trimmed}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -74,40 +124,20 @@ Respond with ONLY a valid JSON object in this exact format, no markdown, no extr
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a personalized outreach email for a lead.
- * Pass followUp=1 or followUp=2 for follow-up sequences.
+ * Generates a personalized outreach email for a lead using the PRD prompt.
+ * Returns { subject, body }.
+ * Throws on API failure or unparseable response — callers handle status transitions.
  */
 export async function generateEmail(
   lead: LeadContext,
-  followUp: number = 0,
+  template: TemplateContext,
 ): Promise<GeneratedEmail> {
   const genAI = getClient();
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-  const prompt = buildPrompt(lead, followUp);
+  const prompt = buildPrompt(lead, template);
   const result = await model.generateContent(prompt);
   const text = result.response.text().trim();
 
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    // Gemini occasionally wraps JSON in markdown code fences — strip and retry
-    const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    parsed = JSON.parse(stripped);
-  }
-
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    typeof (parsed as Record<string, unknown>).subject !== 'string' ||
-    typeof (parsed as Record<string, unknown>).body !== 'string'
-  ) {
-    throw new Error(`Gemini returned unexpected format: ${text}`);
-  }
-
-  const { subject, body } = parsed as GeneratedEmail;
-
-  return { subject, body };
+  return parseResponse(text);
 }
