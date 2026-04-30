@@ -25,11 +25,14 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.readonly',
+  // AVI-13: gmail.compose is required to create drafts via drafts.create.
+  // If you already have a token without this scope, revoke it at
+  // https://myaccount.google.com/permissions and re-run `npm run gmail:auth`.
+  'https://www.googleapis.com/auth/gmail.compose',
 ];
 
 // OOB redirect — works for Desktop App OAuth clients in GCP.
-// NOTE: when scope gmail.compose + gmail.modify are needed (AVI-13), regenerate
-// the token with updated SCOPES above. OOB deprecation only affects new Web clients.
+// OOB deprecation only affects new Web clients; Desktop App flow remains valid.
 const REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob';
 
 const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);

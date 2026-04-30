@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../db/client';
 export type LeadStatus =
   | 'new'
   | 'draft_created'
+  | 'generation_failed'
   | 'contacted'
   | 'replied'
   | 'follow_up_scheduled'
@@ -27,6 +28,7 @@ export interface LeadStatusEvent {
 const VALID_STATUSES = new Set<string>([
   'new',
   'draft_created',
+  'generation_failed',
   'contacted',
   'replied',
   'follow_up_scheduled',
