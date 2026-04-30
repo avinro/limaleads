@@ -7,6 +7,7 @@
 // per-user token storage in Supabase — tracked as a separate future issue.
 
 import { google } from 'googleapis';
+import { getOAuth2Client } from './gmailAuth';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,27 +34,6 @@ export interface GmailMessage {
   subject: string;
   snippet: string;
   receivedAt: Date;
-}
-
-// ---------------------------------------------------------------------------
-// Client setup
-// ---------------------------------------------------------------------------
-
-function getOAuth2Client() {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error(
-      'Missing Gmail credentials. Ensure GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN are set in .env. Run `npm run gmail:auth` to generate the refresh token.',
-    );
-  }
-
-  const auth = new google.auth.OAuth2(clientId, clientSecret);
-  auth.setCredentials({ refresh_token: refreshToken });
-
-  return auth;
 }
 
 // ---------------------------------------------------------------------------
