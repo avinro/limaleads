@@ -27,6 +27,12 @@ export interface SentEmail {
   threadId: string;
 }
 
+export interface DraftResult {
+  draftId: string;
+  messageId: string;
+  threadId: string;
+}
+
 export interface GmailMessage {
   messageId: string;
   threadId: string;
@@ -80,6 +86,38 @@ function getHeader(
 // ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
+
+/**
+ * Creates a Gmail draft without sending it.
+ * Returns draftId (identifies the draft), messageId and threadId
+ * (used for sent-detection and thread correlation by AVI-19).
+ *
+ * Requires the gmail.compose OAuth scope — regenerate the token with
+ * `npm run gmail:auth` after adding the scope if this throws 403.
+ */
+export async function createGmailDraft(options: SendEmailOptions): Promise<DraftResult> {
+  const auth = getOAuth2Client();
+  const gmail = google.gmail({ version: 'v1', auth });
+
+  const response = await gmail.users.drafts.create({
+    userId: 'me',
+    requestBody: {
+      message: {
+        raw: encodeEmail(options),
+      },
+    },
+  });
+
+  const draftId = response.data.id;
+  const messageId = response.data.message?.id;
+  const threadId = response.data.message?.threadId;
+
+  if (!draftId || !messageId || !threadId) {
+    throw new Error('Gmail API returned an incomplete draft response');
+  }
+
+  return { draftId, messageId, threadId };
+}
 
 /**
  * Sends an email via the Gmail API.
