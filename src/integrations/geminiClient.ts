@@ -1,5 +1,5 @@
 // Gemini Flash client — generates personalized outreach emails from lead context.
-// Uses gemini-2.0-flash for speed and cost efficiency at MVP scale.
+// Uses gemini-2.5-flash for speed and cost efficiency at MVP scale.
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -82,7 +82,7 @@ export async function generateEmail(
   followUp: number = 0,
 ): Promise<GeneratedEmail> {
   const genAI = getClient();
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const prompt = buildPrompt(lead, followUp);
   const result = await model.generateContent(prompt);
