@@ -62,7 +62,12 @@ describe('runDraftJob', () => {
 
       vi.mocked(processLeadDraft)
         .mockResolvedValueOnce({ leadId: 'lead-1', draftId: 'd1', messageId: 'm1', threadId: 't1' })
-        .mockResolvedValueOnce({ leadId: 'lead-2', draftId: 'd2', messageId: 'm2', threadId: 't2' });
+        .mockResolvedValueOnce({
+          leadId: 'lead-2',
+          draftId: 'd2',
+          messageId: 'm2',
+          threadId: 't2',
+        });
 
       const summary = await runDraftJob();
 
@@ -102,9 +107,12 @@ describe('runDraftJob', () => {
     it('counts null result from processLeadDraft as failed and continues', async () => {
       makeSupabaseMock([[{ id: 'lead-1' }, { id: 'lead-2' }], []]);
 
-      vi.mocked(processLeadDraft)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ leadId: 'lead-2', draftId: 'd2', messageId: 'm2', threadId: 't2' });
+      vi.mocked(processLeadDraft).mockResolvedValueOnce(null).mockResolvedValueOnce({
+        leadId: 'lead-2',
+        draftId: 'd2',
+        messageId: 'm2',
+        threadId: 't2',
+      });
 
       const summary = await runDraftJob();
 
@@ -117,7 +125,12 @@ describe('runDraftJob', () => {
       vi.mocked(processLeadDraft)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ leadId: 'lead-3', draftId: 'd3', messageId: 'm3', threadId: 't3' });
+        .mockResolvedValueOnce({
+          leadId: 'lead-3',
+          draftId: 'd3',
+          messageId: 'm3',
+          threadId: 't3',
+        });
 
       const summary = await runDraftJob();
 
