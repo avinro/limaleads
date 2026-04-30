@@ -2,6 +2,7 @@
 // New jobs are registered here as the system grows.
 
 import { runApolloPoller } from './jobs/apolloPoller';
+import { runDraftJob } from './jobs/draftJob';
 
 const DEFAULT_INTERVAL_HOURS = 4;
 
@@ -19,24 +20,38 @@ function getIntervalMs(): number {
   return hours * 60 * 60 * 1000;
 }
 
-// Guard against overlapping runs if a poll cycle takes longer than the interval.
-let isPollerRunning = false;
+// Guard against overlapping runs if a cycle takes longer than the interval.
+let isCycleRunning = false;
 
-async function runPollerOnce(): Promise<void> {
-  if (isPollerRunning) {
-    console.warn('Apollo poller is still running from the previous cycle — skipping this tick');
+/**
+ * Runs one full pipeline cycle: Apollo ingestion followed by draft creation.
+ * Each job runs unconditionally with its own try/catch so a failure in one
+ * does not prevent the other from executing.
+ */
+async function runCycle(): Promise<void> {
+  if (isCycleRunning) {
+    console.warn('Cycle still running from previous tick — skipping');
     return;
   }
 
-  isPollerRunning = true;
+  isCycleRunning = true;
 
   try {
-    const summary = await runApolloPoller();
-    console.log('Apollo poller finished:', summary);
-  } catch (error) {
-    console.error('Apollo poller failed:', error);
+    try {
+      const pollSummary = await runApolloPoller();
+      console.log('Apollo poller finished:', pollSummary);
+    } catch (error) {
+      console.error('Apollo poller failed:', error);
+    }
+
+    try {
+      const draftSummary = await runDraftJob();
+      console.log('Draft job finished:', draftSummary);
+    } catch (error) {
+      console.error('Draft job failed:', error);
+    }
   } finally {
-    isPollerRunning = false;
+    isCycleRunning = false;
   }
 }
 
@@ -44,13 +59,13 @@ async function main(): Promise<void> {
   console.log('LimaLeads worker started');
 
   // Run immediately on startup, then on a fixed interval.
-  await runPollerOnce();
+  await runCycle();
 
   const intervalMs = getIntervalMs();
-  console.log(`Apollo poller scheduled every ${intervalMs / 1000 / 60 / 60}h`);
+  console.log(`Cycle scheduled every ${intervalMs / 1000 / 60 / 60}h`);
 
   setInterval(() => {
-    void runPollerOnce();
+    void runCycle();
   }, intervalMs);
 }
 

@@ -83,8 +83,12 @@ async function insertLead(params: {
  *
  * Errors from Apollo API calls are handled by runWithRetry and logged to job_log.
  * The process is never crashed — failures are logged and the job returns a summary.
+ *
+ * @param maxPages - Optional upper bound on pages fetched. Defaults to Infinity
+ *   (fetch all). Set to a low value (e.g. 1) for manual/CLI runs to limit
+ *   Apollo credit consumption.
  */
-export async function runApolloPoller(): Promise<PollSummary> {
+export async function runApolloPoller(maxPages = Infinity): Promise<PollSummary> {
   const summary: PollSummary = {
     fetched: 0,
     enriched: 0,
@@ -182,8 +186,9 @@ export async function runApolloPoller(): Promise<PollSummary> {
         }
       }
 
-      // Continue only if there are more pages and this page had results.
-      hasMore = page < pagination.total_pages && people.length > 0;
+      // Continue only if there are more pages, this page had results, and we
+      // have not reached the caller-supplied page cap.
+      hasMore = page < pagination.total_pages && people.length > 0 && page < maxPages;
       page += 1;
     }
 
