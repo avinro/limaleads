@@ -63,10 +63,15 @@ type SelectChain = {
   update: ReturnType<typeof vi.fn>;
 };
 
-function makeSelectChain(returnValue: { data: unknown; error: null | { message: string } }): SelectChain {
+function makeSelectChain(returnValue: {
+  data: unknown;
+  error: null | { message: string };
+}): SelectChain {
   const maybeSingle = vi.fn().mockResolvedValue(returnValue);
   const limit = vi.fn().mockReturnValue({ maybeSingle });
-  const eq = vi.fn().mockReturnValue({ maybeSingle, limit, eq: vi.fn().mockReturnValue({ maybeSingle }) });
+  const eq = vi
+    .fn()
+    .mockReturnValue({ maybeSingle, limit, eq: vi.fn().mockReturnValue({ maybeSingle }) });
   const select = vi.fn().mockReturnValue({ eq });
   return { select, eq, maybeSingle, limit, update: vi.fn() };
 }
@@ -136,7 +141,11 @@ describe('processLeadDraft', () => {
       });
 
       expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid', 'draft_created', 'system');
-      expect(logJob).toHaveBeenCalledWith('draft-creator', 'success', expect.objectContaining({ leadId: 'lead-uuid' }));
+      expect(logJob).toHaveBeenCalledWith(
+        'draft-creator',
+        'success',
+        expect.objectContaining({ leadId: 'lead-uuid' }),
+      );
     });
 
     it('applies all placeholder types correctly', async () => {
@@ -183,7 +192,11 @@ describe('processLeadDraft', () => {
       expect(result).toBeNull();
       expect(createGmailDraft).not.toHaveBeenCalled();
       expect(transitionLeadStatus).not.toHaveBeenCalled();
-      expect(logJob).toHaveBeenCalledWith('draft-creator', 'error', expect.objectContaining({ leadId: 'lead-uuid' }));
+      expect(logJob).toHaveBeenCalledWith(
+        'draft-creator',
+        'error',
+        expect.objectContaining({ leadId: 'lead-uuid' }),
+      );
     });
   });
 
@@ -196,7 +209,11 @@ describe('processLeadDraft', () => {
       expect(result).toBeNull();
       expect(createGmailDraft).not.toHaveBeenCalled();
       expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid', 'generation_failed', 'system');
-      expect(logJob).toHaveBeenCalledWith('draft-creator', 'error', expect.objectContaining({ step: 'fetch_template' }));
+      expect(logJob).toHaveBeenCalledWith(
+        'draft-creator',
+        'error',
+        expect.objectContaining({ step: 'fetch_template' }),
+      );
     });
   });
 
@@ -212,7 +229,9 @@ describe('processLeadDraft', () => {
       expect(logJob).toHaveBeenCalledWith(
         'draft-creator',
         'error',
-        expect.objectContaining({ error: expect.objectContaining({ message: 'Gmail 403 Forbidden' }) }),
+        expect.objectContaining({
+          error: expect.objectContaining({ message: 'Gmail 403 Forbidden' }),
+        }),
       );
     });
   });
