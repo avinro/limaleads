@@ -36,9 +36,7 @@ function getHeader(
   headers: Array<{ name?: string | null; value?: string | null }>,
   name: string,
 ): string {
-  return (
-    headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? ''
-  );
+  return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? '';
 }
 
 /**
@@ -54,14 +52,17 @@ function decodeBase64Url(data: string): string {
  * Prefers text/plain; falls back to text/html with tags stripped.
  */
 function extractPlainBody(
-  payload: {
-    mimeType?: string | null;
-    body?: { data?: string | null } | null;
-    parts?: Array<{
-      mimeType?: string | null;
-      body?: { data?: string | null } | null;
-    }> | null;
-  } | null | undefined,
+  payload:
+    | {
+        mimeType?: string | null;
+        body?: { data?: string | null } | null;
+        parts?: Array<{
+          mimeType?: string | null;
+          body?: { data?: string | null } | null;
+        }> | null;
+      }
+    | null
+    | undefined,
 ): string {
   if (!payload) return '';
 

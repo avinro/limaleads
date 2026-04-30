@@ -83,7 +83,10 @@ function makeThreadMessage(overrides: {
 }
 
 /** Returns a minimal full-message fixture for messages.get responses. */
-function makeFullMessage(body: string, overrides: { id?: string; threadId?: string; internalDate?: number } = {}): object {
+function makeFullMessage(
+  body: string,
+  overrides: { id?: string; threadId?: string; internalDate?: number } = {},
+): object {
   return {
     id: overrides.id ?? 'msg-1',
     threadId: overrides.threadId ?? 'thread-abc',
@@ -201,9 +204,7 @@ describe('findSentMessageForLead — thread strategy', () => {
   it('returns null when SENT message is from a different sender', async () => {
     mockThreadsGet.mockResolvedValueOnce({
       data: {
-        messages: [
-          makeThreadMessage({ from: 'other@example.com' }),
-        ],
+        messages: [makeThreadMessage({ from: 'other@example.com' })],
       },
     });
 
@@ -214,9 +215,7 @@ describe('findSentMessageForLead — thread strategy', () => {
   it('returns null when SENT message does not include lead.email in To/Cc/Bcc', async () => {
     mockThreadsGet.mockResolvedValueOnce({
       data: {
-        messages: [
-          makeThreadMessage({ to: 'someone-else@example.com' }),
-        ],
+        messages: [makeThreadMessage({ to: 'someone-else@example.com' })],
       },
     });
 
@@ -255,7 +254,9 @@ describe('findSentMessageForLead — thread strategy', () => {
   it('matches lead.email that appears in Cc header', async () => {
     const msg = makeThreadMessage({ to: 'primary@example.com' });
     // Inject a Cc header
-    const msgWithCc = JSON.parse(JSON.stringify(msg)) as { payload: { headers: Array<{ name: string; value: string }> } };
+    const msgWithCc = JSON.parse(JSON.stringify(msg)) as {
+      payload: { headers: Array<{ name: string; value: string }> };
+    };
     msgWithCc.payload.headers.push({ name: 'Cc', value: 'lead@acme.com' });
 
     mockThreadsGet.mockResolvedValueOnce({ data: { messages: [msgWithCc] } });
