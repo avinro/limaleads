@@ -12,6 +12,7 @@
     "gmail:auth": "tsx src/scripts/gmailAuth.ts",
     "smoke:test": "tsx src/scripts/smokeTest.ts",
     "pipeline:once": "tsx src/scripts/runPipelineOnce.ts",
+    "telegram:test": "tsx src/scripts/telegramTest.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
