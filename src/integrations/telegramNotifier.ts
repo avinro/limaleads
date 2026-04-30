@@ -43,8 +43,6 @@ export async function sendTelegramAlert(text: string): Promise<void> {
 
   if (!response.ok) {
     const responseBody = await response.text();
-    throw new Error(
-      `Telegram API error ${response.status}: ${responseBody}`,
-    );
+    throw new Error(`Telegram API error ${response.status}: ${responseBody}`);
   }
 }

@@ -55,7 +55,13 @@ async function testApollo(): Promise<void> {
 async function testGemini(): Promise<void> {
   await run('Gemini — generateEmail (initial outreach)', async () => {
     const email = await generateEmail(
-      { name: 'Test Lead', title: 'CEO', company: 'Smoke Test Corp', linkedinUrl: null, sourceCriteria: null },
+      {
+        name: 'Test Lead',
+        title: 'CEO',
+        company: 'Smoke Test Corp',
+        linkedinUrl: null,
+        sourceCriteria: null,
+      },
       { body: 'Hi {{name}}, I wanted to reach out about {{company}}.' },
     );
     const subjectPreview = email.subject.slice(0, 60);
@@ -65,7 +71,13 @@ async function testGemini(): Promise<void> {
 
   await run('Gemini — generateEmail (follow-up scenario)', async () => {
     const email = await generateEmail(
-      { name: 'Test Lead', title: 'CTO', company: 'Smoke Test Corp', linkedinUrl: null, sourceCriteria: null },
+      {
+        name: 'Test Lead',
+        title: 'CTO',
+        company: 'Smoke Test Corp',
+        linkedinUrl: null,
+        sourceCriteria: null,
+      },
       { body: 'Following up on my previous note about {{company}}.' },
     );
     return `subject="${email.subject.slice(0, 60)}" body_words=${email.body.split(/\s+/).length}`;
