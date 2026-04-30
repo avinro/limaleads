@@ -26,6 +26,9 @@ interface LeadRow {
   company: string | null;
   title: string | null;
   linkedin_url: string | null;
+  // AVI-17: nullable country, additive only. AVI-18 will derive language
+  // from this and pass it to generateEmail when Gemini is wired in.
+  country: string | null;
 }
 
 interface TemplateRow {
@@ -65,7 +68,7 @@ function applyPlaceholders(text: string, lead: LeadRow): string {
 async function fetchLead(leadId: string): Promise<LeadRow | null> {
   const { data, error } = await getSupabaseClient()
     .from('leads')
-    .select('id, email, name, company, title, linkedin_url')
+    .select('id, email, name, company, title, linkedin_url, country')
     .eq('id', leadId)
     .maybeSingle();
 

@@ -61,6 +61,8 @@ async function testGemini(): Promise<void> {
         company: 'Smoke Test Corp',
         linkedinUrl: null,
         sourceCriteria: null,
+        country: 'GB',
+        language: 'en',
       },
       { body: 'Hi {{name}}, I wanted to reach out about {{company}}.' },
     );
@@ -77,6 +79,8 @@ async function testGemini(): Promise<void> {
         company: 'Smoke Test Corp',
         linkedinUrl: null,
         sourceCriteria: null,
+        country: 'DE',
+        language: 'de',
       },
       { body: 'Following up on my previous note about {{company}}.' },
     );

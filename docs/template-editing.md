@@ -83,3 +83,25 @@ The pipeline will skip deactivated templates.
 - `body` and `subject` are read by `createGmailDraft` when creating the initial draft.
 - `follow_up_body` and `follow_up_days` are used by the follow-up scheduler (AVI-20) to determine when and what to send.
 - Changes take effect on the **next pipeline run** — there is no caching.
+
+---
+
+## AVI-17 note: Atelierra voice lives in code, not in this template
+
+The active `Default B2B Outreach` template is still the placeholder-based copy seeded by AVI-15. It is intentionally **not** updated by AVI-17.
+
+The Atelierra brand voice (fashion-level merch, localized CTA, EN/DE switching) lives in:
+
+- `src/integrations/geminiClient.ts` — the Gemini prompt that includes 5 style examples drawn from the client's first emails.
+- `src/scripts/evaluateEmails.ts` — the `ATELIERRA_TEMPLATE_BODY` fixture used by the `npm run eval:emails` quality gate.
+
+When AVI-18 wires Gemini into the live pipeline, the operator may either:
+
+1. Replace this template's `body` with the Atelierra fixture body (so Gemini receives the right reference), or
+2. Insert a new template called e.g. `Atelierra Outreach` and deactivate the current one.
+
+Until then, manual edits to this template only affect the placeholder-based draft path.
+
+## Lead `country` column (AVI-17)
+
+A nullable `country` column was added to `public.leads`. Operators can populate it via Supabase Studio with ISO-2 codes (e.g. `DE`, `AT`, `CH`, `GB`, `US`). This drives language detection (`DE`/`AT`/`CH` → German, else English) and will be consumed by the AI generator once AVI-18 wires it in.

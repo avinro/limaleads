@@ -37,6 +37,7 @@ const LEAD = {
   company: 'Acme Corp',
   title: 'CEO',
   linkedin_url: 'https://linkedin.com/in/janedoe',
+  country: 'US',
 };
 
 const TEMPLATE = {
