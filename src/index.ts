@@ -1,6 +1,7 @@
 // Main worker entrypoint — orchestrates all scheduled jobs.
 // New jobs are registered here as the system grows.
 
+import { notifyLeadReply } from './integrations/telegramNotifier';
 import { runApolloPoller } from './jobs/apolloPoller';
 import { runDraftJob } from './jobs/draftJob';
 import { runFollowUpScheduler } from './jobs/followUpScheduler';
@@ -80,9 +81,6 @@ let isReplyDetectionRunning = false;
 /**
  * Runs one reply-detection pass. If the previous pass is still in flight,
  * logs the skip and returns.
- *
- * onReplyDetected is intentionally left as undefined (no-op) until AVI-22
- * wires in the Telegram notifier.
  */
 async function runReplyDetectionTick(): Promise<void> {
   if (isReplyDetectionRunning) {
@@ -93,7 +91,7 @@ async function runReplyDetectionTick(): Promise<void> {
   isReplyDetectionRunning = true;
 
   try {
-    const summary = await runReplyDetection();
+    const summary = await runReplyDetection((lead, reply) => notifyLeadReply({ lead, reply }));
     console.log('Reply detection finished:', summary);
   } catch (error) {
     console.error('Reply detection failed:', error);

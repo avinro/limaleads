@@ -42,12 +42,14 @@ function makeMessage(overrides: {
   labelIds?: string[];
   from?: string;
   internalDate?: number;
+  snippet?: string;
 }): object {
   const {
     id = 'msg-reply-1',
     labelIds = ['INBOX', 'UNREAD'],
     from = 'lead@acme.com',
     internalDate = 2_000_000,
+    snippet = 'Thanks for reaching out!',
   } = overrides;
 
   return {
@@ -55,6 +57,7 @@ function makeMessage(overrides: {
     threadId: 'thread-abc',
     labelIds,
     internalDate: String(internalDate),
+    snippet,
     payload: {
       headers: [
         { name: 'From', value: from },
@@ -86,6 +89,28 @@ describe('findReplyForLead', () => {
     expect(result!.threadId).toBe('thread-abc');
     expect(result!.fromAddress).toBe('lead@acme.com');
     expect(result!.repliedAt).toEqual(new Date(2_000_000));
+    expect(result!.snippet).toBe('Thanks for reaching out!');
+  });
+
+  it('returns empty string for snippet when Gmail omits it', async () => {
+    const msgWithoutSnippet = {
+      id: 'msg-reply-1',
+      threadId: 'thread-abc',
+      labelIds: ['INBOX', 'UNREAD'],
+      internalDate: String(2_000_000),
+      // snippet deliberately omitted
+      payload: {
+        headers: [{ name: 'From', value: 'lead@acme.com' }],
+      },
+    };
+    mockThreadsGet.mockResolvedValueOnce({
+      data: { messages: [msgWithoutSnippet] },
+    });
+
+    const result = await findReplyForLead(BASE_LEAD);
+
+    expect(result).not.toBeNull();
+    expect(result!.snippet).toBe('');
   });
 
   // ─── SENT / DRAFT exclusions ─────────────────────────────────────────────

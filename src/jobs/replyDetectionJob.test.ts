@@ -35,6 +35,9 @@ const BASE_LEAD = {
   email: 'lead@acme.com',
   gmail_thread_id: 'thread-abc',
   contacted_at: new Date(1_000_000).toISOString(),
+  name: 'John Lead',
+  company: 'Acme Corp',
+  title: 'CEO',
 };
 
 const REPLY_RESULT = {
@@ -42,6 +45,7 @@ const REPLY_RESULT = {
   threadId: 'thread-abc',
   repliedAt: new Date(2_000_000),
   fromAddress: 'lead@acme.com',
+  snippet: 'Thanks for reaching out!',
 };
 
 // ---------------------------------------------------------------------------

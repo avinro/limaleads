@@ -14,12 +14,13 @@
 // processes would call findReplyForLead for the same leads concurrently.
 
 import 'dotenv/config';
+import { notifyLeadReply } from '../integrations/telegramNotifier';
 import { runReplyDetection } from '../jobs/replyDetectionJob';
 
 async function main(): Promise<void> {
   console.log('Running reply detection once...');
 
-  const summary = await runReplyDetection();
+  const summary = await runReplyDetection((lead, reply) => notifyLeadReply({ lead, reply }));
 
   console.log('Reply detection summary:', JSON.stringify(summary, null, 2));
 }

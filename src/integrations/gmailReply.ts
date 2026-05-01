@@ -36,6 +36,8 @@ export interface ReplyResult {
   threadId: string;
   repliedAt: Date;
   fromAddress: string;
+  /** Gmail-provided plain-text snippet (~200 chars). Empty string if not returned. */
+  snippet: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +92,7 @@ export async function findReplyForLead(lead: LeadReplyInput): Promise<ReplyResul
     threadId?: string | null;
     labelIds?: string[] | null;
     internalDate?: string | null;
+    snippet?: string | null;
     payload?: {
       headers?: Array<{ name?: string | null; value?: string | null }> | null;
     } | null;
@@ -135,5 +138,6 @@ export async function findReplyForLead(lead: LeadReplyInput): Promise<ReplyResul
     threadId: best.threadId!,
     repliedAt: new Date(Number(best.internalDate ?? 0)),
     fromAddress: getHeader(best.payload?.headers ?? [], 'from'),
+    snippet: best.snippet ?? '',
   };
 }
