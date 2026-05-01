@@ -4,12 +4,14 @@
 import { runApolloPoller } from './jobs/apolloPoller';
 import { runDraftJob } from './jobs/draftJob';
 import { runFollowUpScheduler } from './jobs/followUpScheduler';
+import { runReplyDetection } from './jobs/replyDetectionJob';
 import { runSentDetection } from './jobs/sentDetectionJob';
 import { logJob } from './lib/logger';
 
 const DEFAULT_INTERVAL_HOURS = 4;
 const DEFAULT_SENT_POLL_INTERVAL_MS = 60_000;
 const DEFAULT_FOLLOW_UP_INTERVAL_MS = 86_400_000; // 24 hours
+const DEFAULT_REPLY_POLL_INTERVAL_MS = 300_000; // 5 minutes
 
 // ---------------------------------------------------------------------------
 // Interval parsers
@@ -53,6 +55,51 @@ function getFollowUpIntervalMs(): number {
     return DEFAULT_FOLLOW_UP_INTERVAL_MS;
   }
   return parsed;
+}
+
+function getReplyPollIntervalMs(): number {
+  const raw = process.env.GMAIL_REPLY_POLL_INTERVAL_MS;
+  if (!raw) return DEFAULT_REPLY_POLL_INTERVAL_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn(
+      `Invalid GMAIL_REPLY_POLL_INTERVAL_MS "${raw}"; using default ${DEFAULT_REPLY_POLL_INTERVAL_MS}ms`,
+    );
+    return DEFAULT_REPLY_POLL_INTERVAL_MS;
+  }
+  return parsed;
+}
+
+// ---------------------------------------------------------------------------
+// Reply detection loop (runs every GMAIL_REPLY_POLL_INTERVAL_MS, default 5 min)
+// ---------------------------------------------------------------------------
+
+// Guard against overlapping reply-detection runs (e.g. during Gmail outages).
+let isReplyDetectionRunning = false;
+
+/**
+ * Runs one reply-detection pass. If the previous pass is still in flight,
+ * logs the skip and returns.
+ *
+ * onReplyDetected is intentionally left as undefined (no-op) until AVI-22
+ * wires in the Telegram notifier.
+ */
+async function runReplyDetectionTick(): Promise<void> {
+  if (isReplyDetectionRunning) {
+    await logJob('reply-detection', 'started', { skipped: true, reason: 'overlap' });
+    return;
+  }
+
+  isReplyDetectionRunning = true;
+
+  try {
+    const summary = await runReplyDetection();
+    console.log('Reply detection finished:', summary);
+  } catch (error) {
+    console.error('Reply detection failed:', error);
+  } finally {
+    isReplyDetectionRunning = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +211,7 @@ async function main(): Promise<void> {
   await runCycle();
   await runSentDetectionTick();
   await runFollowUpTick();
+  await runReplyDetectionTick();
 
   const intervalMs = getIntervalMs();
   console.log(`Apollo/draft cycle scheduled every ${intervalMs / 1000 / 60 / 60}h`);
@@ -185,6 +233,13 @@ async function main(): Promise<void> {
   setInterval(() => {
     void runFollowUpTick();
   }, followUpMs);
+
+  const replyPollMs = getReplyPollIntervalMs();
+  console.log(`Reply detection scheduled every ${replyPollMs / 1000 / 60}min`);
+
+  setInterval(() => {
+    void runReplyDetectionTick();
+  }, replyPollMs);
 }
 
 main().catch((err) => {
