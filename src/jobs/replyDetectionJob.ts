@@ -45,9 +45,7 @@ function getMaxLeads(): number {
   if (!raw) return DEFAULT_MAX_LEADS;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1 || !Number.isInteger(parsed)) {
-    console.warn(
-      `Invalid GMAIL_REPLY_POLL_MAX_LEADS "${raw}"; using default ${DEFAULT_MAX_LEADS}`,
-    );
+    console.warn(`Invalid GMAIL_REPLY_POLL_MAX_LEADS "${raw}"; using default ${DEFAULT_MAX_LEADS}`);
     return DEFAULT_MAX_LEADS;
   }
   return parsed;

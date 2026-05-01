@@ -71,10 +71,7 @@ function makeSupabaseMock(leads: (typeof BASE_LEAD)[]): void {
 /**
  * Like makeSupabaseMock but makes the update call return an error.
  */
-function makeSupabaseMockWithUpdateError(
-  leads: (typeof BASE_LEAD)[],
-  errorMsg: string,
-): void {
+function makeSupabaseMockWithUpdateError(leads: (typeof BASE_LEAD)[], errorMsg: string): void {
   const limit = vi.fn().mockResolvedValue({ data: leads, error: null });
   const order = vi.fn().mockReturnValue({ limit });
   const not = vi.fn().mockReturnValue({ order });
@@ -280,9 +277,11 @@ describe('runReplyDetection', () => {
 
       await runReplyDetection(onReplyDetected);
 
-      const notifyErrorCall = vi.mocked(logJob).mock.calls.find(
-        (c) => c[1] === 'error' && (c[2] as Record<string, unknown>).step === 'notify',
-      );
+      const notifyErrorCall = vi
+        .mocked(logJob)
+        .mock.calls.find(
+          (c) => c[1] === 'error' && (c[2] as Record<string, unknown>).step === 'notify',
+        );
       expect(notifyErrorCall).toBeDefined();
       expect(notifyErrorCall![2]).toMatchObject({ leadId: BASE_LEAD.id, step: 'notify' });
     });

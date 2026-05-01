@@ -197,9 +197,7 @@ describe('findReplyForLead', () => {
   // ─── 404 handling ────────────────────────────────────────────────────────
 
   it('returns null when Gmail returns 404 (thread deleted or access revoked)', async () => {
-    mockThreadsGet.mockRejectedValueOnce(
-      Object.assign(new Error('Not Found'), { status: 404 }),
-    );
+    mockThreadsGet.mockRejectedValueOnce(Object.assign(new Error('Not Found'), { status: 404 }));
 
     const result = await findReplyForLead(BASE_LEAD);
 
@@ -207,9 +205,7 @@ describe('findReplyForLead', () => {
   });
 
   it('rethrows non-404 Gmail API errors', async () => {
-    mockThreadsGet.mockRejectedValueOnce(
-      Object.assign(new Error('Forbidden'), { status: 403 }),
-    );
+    mockThreadsGet.mockRejectedValueOnce(Object.assign(new Error('Forbidden'), { status: 403 }));
 
     await expect(findReplyForLead(BASE_LEAD)).rejects.toThrow('Forbidden');
   });
