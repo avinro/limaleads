@@ -154,7 +154,10 @@ describe('processLeadDraft', () => {
   // -------------------------------------------------------------------------
   describe('happy path', () => {
     it('generates email via Gemini, creates Gmail draft, persists template_id and draft fields, transitions to draft_created', async () => {
-      mockSupabase({ lead: { data: LEAD, error: null }, template: { data: TEMPLATE, error: null } });
+      mockSupabase({
+        lead: { data: LEAD, error: null },
+        template: { data: TEMPLATE, error: null },
+      });
       vi.mocked(generateEmail).mockResolvedValue(GENERATED);
       vi.mocked(createGmailDraft).mockResolvedValue(DRAFT_RESULT);
 
@@ -205,7 +208,10 @@ describe('processLeadDraft', () => {
 
     it('passes language=de for DACH country', async () => {
       const germanLead = { ...LEAD, country: 'DE' };
-      mockSupabase({ lead: { data: germanLead, error: null }, template: { data: TEMPLATE, error: null } });
+      mockSupabase({
+        lead: { data: germanLead, error: null },
+        template: { data: TEMPLATE, error: null },
+      });
       vi.mocked(generateEmail).mockResolvedValue(GENERATED);
       vi.mocked(createGmailDraft).mockResolvedValue(DRAFT_RESULT);
 
@@ -221,7 +227,10 @@ describe('processLeadDraft', () => {
   // -------------------------------------------------------------------------
   describe('lead not found', () => {
     it('logs error and returns null — no transition, no Telegram alert', async () => {
-      mockSupabase({ lead: { data: null, error: null }, template: { data: TEMPLATE, error: null } });
+      mockSupabase({
+        lead: { data: null, error: null },
+        template: { data: TEMPLATE, error: null },
+      });
 
       const result = await processLeadDraft('lead-uuid');
 
@@ -249,12 +258,8 @@ describe('processLeadDraft', () => {
       expect(generateEmail).not.toHaveBeenCalled();
       expect(createGmailDraft).not.toHaveBeenCalled();
       expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid', 'generation_failed', 'system');
-      expect(sendTelegramAlert).toHaveBeenCalledWith(
-        expect.stringContaining('generation_failed'),
-      );
-      expect(sendTelegramAlert).toHaveBeenCalledWith(
-        expect.stringContaining('lead-uuid'),
-      );
+      expect(sendTelegramAlert).toHaveBeenCalledWith(expect.stringContaining('generation_failed'));
+      expect(sendTelegramAlert).toHaveBeenCalledWith(expect.stringContaining('lead-uuid'));
     });
   });
 
@@ -282,7 +287,10 @@ describe('processLeadDraft', () => {
   // -------------------------------------------------------------------------
   describe('Gemini generation fails', () => {
     it('logs error, fires Telegram alert, transitions to generation_failed, no Gmail draft', async () => {
-      mockSupabase({ lead: { data: LEAD, error: null }, template: { data: TEMPLATE, error: null } });
+      mockSupabase({
+        lead: { data: LEAD, error: null },
+        template: { data: TEMPLATE, error: null },
+      });
       vi.mocked(generateEmail).mockRejectedValue(new Error('Gemini 500 Internal Server Error'));
 
       const result = await processLeadDraft('lead-uuid');
@@ -290,9 +298,7 @@ describe('processLeadDraft', () => {
       expect(result).toBeNull();
       expect(createGmailDraft).not.toHaveBeenCalled();
       expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid', 'generation_failed', 'system');
-      expect(sendTelegramAlert).toHaveBeenCalledWith(
-        expect.stringContaining('generate_email'),
-      );
+      expect(sendTelegramAlert).toHaveBeenCalledWith(expect.stringContaining('generate_email'));
       expect(logJob).toHaveBeenCalledWith(
         'draft-creator',
         'error',
@@ -306,7 +312,10 @@ describe('processLeadDraft', () => {
   // -------------------------------------------------------------------------
   describe('Gmail API fails', () => {
     it('logs error, fires Telegram alert, transitions to generation_failed, returns null without throwing', async () => {
-      mockSupabase({ lead: { data: LEAD, error: null }, template: { data: TEMPLATE, error: null } });
+      mockSupabase({
+        lead: { data: LEAD, error: null },
+        template: { data: TEMPLATE, error: null },
+      });
       vi.mocked(generateEmail).mockResolvedValue(GENERATED);
       vi.mocked(createGmailDraft).mockRejectedValue(new Error('Gmail 403 Forbidden'));
 
@@ -314,9 +323,7 @@ describe('processLeadDraft', () => {
 
       expect(result).toBeNull();
       expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid', 'generation_failed', 'system');
-      expect(sendTelegramAlert).toHaveBeenCalledWith(
-        expect.stringContaining('create_gmail_draft'),
-      );
+      expect(sendTelegramAlert).toHaveBeenCalledWith(expect.stringContaining('create_gmail_draft'));
       expect(logJob).toHaveBeenCalledWith(
         'draft-creator',
         'error',
@@ -330,7 +337,10 @@ describe('processLeadDraft', () => {
   // -------------------------------------------------------------------------
   describe('generation_failed transition itself fails', () => {
     it('logs both the root error and the transition error, still returns null without throwing', async () => {
-      mockSupabase({ lead: { data: LEAD, error: null }, template: { data: TEMPLATE, error: null } });
+      mockSupabase({
+        lead: { data: LEAD, error: null },
+        template: { data: TEMPLATE, error: null },
+      });
       vi.mocked(generateEmail).mockRejectedValue(new Error('Gemini timeout'));
       vi.mocked(transitionLeadStatus).mockRejectedValue(new Error('RPC down'));
 

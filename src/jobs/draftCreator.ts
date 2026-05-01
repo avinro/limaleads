@@ -188,14 +188,20 @@ export async function processLeadDraft(leadId: string): Promise<DraftCreatorResu
   try {
     template = await fetchActiveTemplate();
   } catch (error) {
-    await logJob(JOB_TYPE, 'error', { leadId, step: 'fetch_template', error: serializeError(error) });
+    await logJob(JOB_TYPE, 'error', {
+      leadId,
+      step: 'fetch_template',
+      error: serializeError(error),
+    });
     await alertGenerationFailed(leadId, 'fetch_template', error);
     await safeTransitionFailed(leadId);
     return null;
   }
 
   if (!template) {
-    const err = new Error('No active template found — seed one via supabase/migrations or Supabase Studio');
+    const err = new Error(
+      'No active template found — seed one via supabase/migrations or Supabase Studio',
+    );
     await logJob(JOB_TYPE, 'error', { leadId, step: 'fetch_template', error: serializeError(err) });
     await alertGenerationFailed(leadId, 'fetch_template', err);
     await safeTransitionFailed(leadId);
@@ -206,7 +212,11 @@ export async function processLeadDraft(leadId: string): Promise<DraftCreatorResu
   try {
     await persistTemplateId(leadId, template.id);
   } catch (error) {
-    await logJob(JOB_TYPE, 'error', { leadId, step: 'persist_template_id', error: serializeError(error) });
+    await logJob(JOB_TYPE, 'error', {
+      leadId,
+      step: 'persist_template_id',
+      error: serializeError(error),
+    });
     await alertGenerationFailed(leadId, 'persist_template_id', error);
     await safeTransitionFailed(leadId);
     return null;
@@ -228,7 +238,11 @@ export async function processLeadDraft(leadId: string): Promise<DraftCreatorResu
   try {
     generated = await generateEmail(leadContext, { body: template.body });
   } catch (error) {
-    await logJob(JOB_TYPE, 'error', { leadId, step: 'generate_email', error: serializeError(error) });
+    await logJob(JOB_TYPE, 'error', {
+      leadId,
+      step: 'generate_email',
+      error: serializeError(error),
+    });
     await alertGenerationFailed(leadId, 'generate_email', error);
     await safeTransitionFailed(leadId);
     return null;
@@ -243,7 +257,11 @@ export async function processLeadDraft(leadId: string): Promise<DraftCreatorResu
       body: generated.body,
     });
   } catch (error) {
-    await logJob(JOB_TYPE, 'error', { leadId, step: 'create_gmail_draft', error: serializeError(error) });
+    await logJob(JOB_TYPE, 'error', {
+      leadId,
+      step: 'create_gmail_draft',
+      error: serializeError(error),
+    });
     await alertGenerationFailed(leadId, 'create_gmail_draft', error);
     await safeTransitionFailed(leadId);
     return null;
@@ -259,7 +277,11 @@ export async function processLeadDraft(leadId: string): Promise<DraftCreatorResu
 
     return { leadId, draftId, messageId, threadId };
   } catch (error) {
-    await logJob(JOB_TYPE, 'error', { leadId, step: 'persist_or_transition', error: serializeError(error) });
+    await logJob(JOB_TYPE, 'error', {
+      leadId,
+      step: 'persist_or_transition',
+      error: serializeError(error),
+    });
     await alertGenerationFailed(leadId, 'persist_or_transition', error);
     await safeTransitionFailed(leadId);
     return null;
