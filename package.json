@@ -17,6 +17,7 @@
     "apollo:poll": "tsx src/scripts/runApolloPollerOnce.ts",
     "sent:once": "tsx src/scripts/runSentDetectionOnce.ts",
     "followups:once": "tsx src/scripts/runFollowUpsOnce.ts",
+    "replies:once": "tsx src/scripts/runReplyDetectionOnce.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
