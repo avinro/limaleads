@@ -37,6 +37,14 @@ const BASE_LEAD = {
   draft_subject: 'Hello from LimaLeads',
   draft_body: 'Hi there, reaching out about Acme.',
   created_at: new Date(1_000_000).toISOString(),
+  status: 'draft_created',
+};
+
+const FOLLOW_UP_LEAD = {
+  ...BASE_LEAD,
+  id: 'lead-uuid-fu',
+  status: 'follow_up_scheduled',
+  follow_up_count: 0,
 };
 
 const SENT_RESULT = {
@@ -58,15 +66,26 @@ const SENT_RESULT_EDITED = {
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a Supabase mock whose from('leads').select().eq().order().limit()
+ * Builds a Supabase mock whose from('leads').select().in().order().limit()
  * chain resolves with the given data for queries, and whose update().eq()
- * chain resolves with { error: null } for writes.
+ * and select().eq().maybeSingle() chains resolve for writes.
  */
-function makeSupabaseMock(leads: typeof BASE_LEAD[]): void {
+function makeSupabaseMock(
+  leads: typeof BASE_LEAD[],
+  followUpCount: number = 0,
+): void {
+  // Select chain: .select().in().order().limit()
   const limit = vi.fn().mockResolvedValue({ data: leads, error: null });
   const order = vi.fn().mockReturnValue({ limit });
-  const eqSelect = vi.fn().mockReturnValue({ order });
-  const select = vi.fn().mockReturnValue({ eqSelect, eq: eqSelect });
+  const inFilter = vi.fn().mockReturnValue({ order });
+
+  // maybeSingle for follow_up_count fetch
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: { follow_up_count: followUpCount }, error: null });
+  const eqMaybeSingle = vi.fn().mockReturnValue({ maybeSingle });
+
+  const select = vi.fn().mockReturnValue({ in: inFilter, eq: eqMaybeSingle });
 
   const eqUpdate = vi.fn().mockResolvedValue({ error: null });
   const update = vi.fn().mockReturnValue({ eq: eqUpdate });
@@ -82,8 +101,14 @@ function makeSupabaseMock(leads: typeof BASE_LEAD[]): void {
 function makeSupabaseMockWithUpdateError(leads: typeof BASE_LEAD[], errorMsg: string): void {
   const limit = vi.fn().mockResolvedValue({ data: leads, error: null });
   const order = vi.fn().mockReturnValue({ limit });
-  const eqSelect = vi.fn().mockReturnValue({ order });
-  const select = vi.fn().mockReturnValue({ eqSelect, eq: eqSelect });
+  const inFilter = vi.fn().mockReturnValue({ order });
+
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: { follow_up_count: 0 }, error: null });
+  const eqMaybeSingle = vi.fn().mockReturnValue({ maybeSingle });
+
+  const select = vi.fn().mockReturnValue({ in: inFilter, eq: eqMaybeSingle });
 
   const eqUpdate = vi.fn().mockResolvedValue({ error: { message: errorMsg } });
   const update = vi.fn().mockReturnValue({ eq: eqUpdate });
@@ -99,8 +124,8 @@ function makeSupabaseMockWithUpdateError(leads: typeof BASE_LEAD[], errorMsg: st
 function makeSupabaseMockWithFetchError(errorMsg: string): void {
   const limit = vi.fn().mockResolvedValue({ data: null, error: { message: errorMsg } });
   const order = vi.fn().mockReturnValue({ limit });
-  const eqSelect = vi.fn().mockReturnValue({ order });
-  const select = vi.fn().mockReturnValue({ eqSelect, eq: eqSelect });
+  const inFilter = vi.fn().mockReturnValue({ order });
+  const select = vi.fn().mockReturnValue({ in: inFilter });
   const from = vi.fn().mockReturnValue({ select });
 
   vi.mocked(getSupabaseClient).mockReturnValue({ from } as never);
@@ -128,6 +153,7 @@ describe('runSentDetection', () => {
       expect(summary).toEqual({
         scanned: 1,
         contacted: 1,
+        followUpSent: 0,
         pending: 0,
         failed: 0,
         capped: false,
@@ -187,6 +213,7 @@ describe('runSentDetection', () => {
       expect(summary).toEqual({
         scanned: 0,
         contacted: 0,
+        followUpSent: 0,
         pending: 0,
         failed: 0,
         capped: false,
@@ -281,6 +308,70 @@ describe('runSentDetection', () => {
       const summary = await runSentDetection();
 
       expect(summary.capped).toBe(false);
+    });
+  });
+
+  // ─── Follow-up scheduled detection ───────────────────────────────────────
+
+  describe('follow_up_scheduled lead', () => {
+    it('increments follow_up_count, sets last_follow_up_at, and transitions to follow_up_sent', async () => {
+      makeSupabaseMock([FOLLOW_UP_LEAD], 0);
+      vi.mocked(findSentMessageForLead).mockResolvedValueOnce(SENT_RESULT);
+      vi.mocked(transitionLeadStatus).mockResolvedValueOnce({} as never);
+
+      const summary = await runSentDetection();
+
+      expect(summary.followUpSent).toBe(1);
+      expect(summary.contacted).toBe(0);
+      expect(transitionLeadStatus).toHaveBeenCalledWith(
+        FOLLOW_UP_LEAD.id,
+        'follow_up_sent',
+        'system',
+      );
+
+      // update must include follow_up_count incremented to 1
+      const { from } = vi.mocked(getSupabaseClient).mock.results[0]!.value as {
+        from: ReturnType<typeof vi.fn>;
+      };
+      // find the update call among all from() results
+      type FromResult2 = { update?: ReturnType<typeof vi.fn> };
+      type MockShape2 = { value: unknown };
+      const results2 = from.mock.results as MockShape2[];
+      let updateCall: Record<string, unknown> | undefined;
+      for (const r of results2) {
+        const v = r.value as FromResult2;
+        if (v?.update && typeof v.update.mock?.calls[0]?.[0] === 'object') {
+          updateCall = v.update.mock.calls[0][0] as Record<string, unknown>;
+        }
+      }
+
+      expect(updateCall?.follow_up_count).toBe(1);
+      expect(typeof updateCall?.last_follow_up_at).toBe('string');
+    });
+
+    it('does NOT create a contacted event for a follow_up_scheduled lead', async () => {
+      makeSupabaseMock([FOLLOW_UP_LEAD], 0);
+      vi.mocked(findSentMessageForLead).mockResolvedValueOnce(SENT_RESULT);
+      vi.mocked(transitionLeadStatus).mockResolvedValueOnce({} as never);
+
+      await runSentDetection();
+
+      expect(transitionLeadStatus).not.toHaveBeenCalledWith(
+        FOLLOW_UP_LEAD.id,
+        'contacted',
+        'system',
+      );
+    });
+
+    it('leaves lead pending when findSentMessageForLead returns null', async () => {
+      makeSupabaseMock([FOLLOW_UP_LEAD]);
+      vi.mocked(findSentMessageForLead).mockResolvedValueOnce(null);
+
+      const summary = await runSentDetection();
+
+      expect(summary.pending).toBe(1);
+      expect(summary.followUpSent).toBe(0);
+      expect(transitionLeadStatus).not.toHaveBeenCalled();
     });
   });
 

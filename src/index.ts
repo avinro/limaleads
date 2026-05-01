@@ -3,11 +3,13 @@
 
 import { runApolloPoller } from './jobs/apolloPoller';
 import { runDraftJob } from './jobs/draftJob';
+import { runFollowUpScheduler } from './jobs/followUpScheduler';
 import { runSentDetection } from './jobs/sentDetectionJob';
 import { logJob } from './lib/logger';
 
 const DEFAULT_INTERVAL_HOURS = 4;
 const DEFAULT_SENT_POLL_INTERVAL_MS = 60_000;
+const DEFAULT_FOLLOW_UP_INTERVAL_MS = 86_400_000; // 24 hours
 
 // ---------------------------------------------------------------------------
 // Interval parsers
@@ -36,6 +38,19 @@ function getSentPollIntervalMs(): number {
       `Invalid GMAIL_SENT_POLL_INTERVAL_MS "${raw}"; using default ${DEFAULT_SENT_POLL_INTERVAL_MS}ms`,
     );
     return DEFAULT_SENT_POLL_INTERVAL_MS;
+  }
+  return parsed;
+}
+
+function getFollowUpIntervalMs(): number {
+  const raw = process.env.FOLLOW_UP_INTERVAL_MS;
+  if (!raw) return DEFAULT_FOLLOW_UP_INTERVAL_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn(
+      `Invalid FOLLOW_UP_INTERVAL_MS "${raw}"; using default ${DEFAULT_FOLLOW_UP_INTERVAL_MS}ms`,
+    );
+    return DEFAULT_FOLLOW_UP_INTERVAL_MS;
   }
   return parsed;
 }
@@ -109,15 +124,46 @@ async function runSentDetectionTick(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Follow-up scheduler (runs every FOLLOW_UP_INTERVAL_MS, default 24h)
+// ---------------------------------------------------------------------------
+
+// Guard against overlapping follow-up runs (e.g. if the scheduler takes longer
+// than the interval on a large batch).
+let isFollowUpRunning = false;
+
+/**
+ * Runs one follow-up scheduling pass. If the previous pass is still in flight,
+ * logs the skip and returns.
+ */
+async function runFollowUpTick(): Promise<void> {
+  if (isFollowUpRunning) {
+    await logJob('follow-up-scheduler', 'started', { skipped: true, reason: 'overlap' });
+    return;
+  }
+
+  isFollowUpRunning = true;
+
+  try {
+    const summary = await runFollowUpScheduler();
+    console.log('Follow-up scheduler finished:', summary);
+  } catch (error) {
+    console.error('Follow-up scheduler failed:', error);
+  } finally {
+    isFollowUpRunning = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   console.log('LimaLeads worker started');
 
-  // Run both jobs immediately on startup, then on their respective intervals.
+  // Run all jobs immediately on startup, then on their respective intervals.
   await runCycle();
   await runSentDetectionTick();
+  await runFollowUpTick();
 
   const intervalMs = getIntervalMs();
   console.log(`Apollo/draft cycle scheduled every ${intervalMs / 1000 / 60 / 60}h`);
@@ -132,6 +178,13 @@ async function main(): Promise<void> {
   setInterval(() => {
     void runSentDetectionTick();
   }, sentPollMs);
+
+  const followUpMs = getFollowUpIntervalMs();
+  console.log(`Follow-up scheduler scheduled every ${followUpMs / 1000 / 60 / 60}h`);
+
+  setInterval(() => {
+    void runFollowUpTick();
+  }, followUpMs);
 }
 
 main().catch((err) => {
