@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateEmail, buildPromptForTest, CTA_EN, CTA_DE } from './geminiClient';
+import {
+  generateEmail,
+  buildPromptForTest,
+  CTA_EN,
+  CTA_DE_M,
+  CTA_DE_F,
+  CTA_DE_NEUTRAL,
+} from './geminiClient';
 import type { LeadContext, TemplateContext } from './geminiClient';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +41,7 @@ const englishLead: LeadContext = {
   sourceCriteria: 'Head of Marketing in UK',
   country: 'GB',
   language: 'en',
+  companyHook: 'A premium automotive accessories brand targeting urban professionals.',
 };
 
 const germanLead: LeadContext = {
@@ -44,6 +52,7 @@ const germanLead: LeadContext = {
   sourceCriteria: 'Brand experience leader in DACH',
   country: 'DE',
   language: 'de',
+  companyHook: null,
 };
 
 const template: TemplateContext = {
@@ -57,7 +66,7 @@ function mockResponse(text: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests — response parsing (preserved from AVI-16)
+// Tests — response parsing
 // ---------------------------------------------------------------------------
 
 describe('generateEmail', () => {
@@ -113,7 +122,7 @@ describe('generateEmail', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests — prompt content (AVI-17 Atelierra voice & localization)
+// Tests — prompt content: Atelierra brand voice
 // ---------------------------------------------------------------------------
 
 describe('buildPromptForTest — Atelierra brand voice', () => {
@@ -125,7 +134,6 @@ describe('buildPromptForTest — Atelierra brand voice', () => {
   it('positions the product as fashion-level merch and forbids "branded merchandise" framing', () => {
     const prompt = buildPromptForTest(englishLead, template);
     expect(prompt).toContain('fashion-level merch');
-    // The brand voice rule must explicitly forbid the wrong framing.
     expect(prompt).toMatch(/never "branded merchandise"/);
   });
 
@@ -145,7 +153,27 @@ describe('buildPromptForTest — Atelierra brand voice', () => {
     const prompt = buildPromptForTest(englishLead, template);
     expect(prompt).toMatch(/60 to 110 words/);
   });
+
+  it('requires anti-marketing-copy tone — no stacked adjectives or filler', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toMatch(/stacked adjectives/i);
+    expect(prompt).toMatch(/no fluff/i);
+  });
+
+  it('requires first-name-only greeting', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toMatch(/ONLY the lead.*first name/i);
+  });
+
+  it('requires a concrete use-case for corporate or enterprise leads', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toMatch(/welcome kit|trade fair|onboarding pack/i);
+  });
 });
+
+// ---------------------------------------------------------------------------
+// Tests — prompt content: language switching
+// ---------------------------------------------------------------------------
 
 describe('buildPromptForTest — language switching', () => {
   it('instructs Gemini to respond in English for non-DACH leads', () => {
@@ -160,14 +188,16 @@ describe('buildPromptForTest — language switching', () => {
     expect(prompt).not.toMatch(/Respond ONLY in English/);
   });
 
-  it('embeds the localized English CTA verbatim for English leads', () => {
+  it('embeds the English CTA verbatim for English leads', () => {
     const prompt = buildPromptForTest(englishLead, template);
     expect(prompt).toContain(CTA_EN);
   });
 
-  it('embeds the localized German CTA verbatim for German leads', () => {
+  it('embeds all German CTA variants verbatim for German leads', () => {
     const prompt = buildPromptForTest(germanLead, template);
-    expect(prompt).toContain(CTA_DE);
+    expect(prompt).toContain(CTA_DE_M);
+    expect(prompt).toContain(CTA_DE_F);
+    expect(prompt).toContain(CTA_DE_NEUTRAL);
   });
 
   it('forbids mixing languages in the output', () => {
@@ -176,6 +206,71 @@ describe('buildPromptForTest — language switching', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Tests — prompt content: German-specific rules
+// ---------------------------------------------------------------------------
+
+describe('buildPromptForTest — German rules (only in DE prompt)', () => {
+  it('requires du-form (no Sie/Ihr/Ihnen) for German', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toMatch(/du.*form/i);
+    expect(prompt).toMatch(/Never.*Sie.*Ihr/);
+  });
+
+  it('forbids empty praise ("Als X bei Y wissen Sie") for German', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toMatch(/No empty praise/i);
+    expect(prompt).toMatch(/wissen Sie/);
+  });
+
+  it('requires English fashion vocabulary (anglicisms) for German', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toMatch(/Fashion-Pieces/);
+    expect(prompt).toMatch(/Avoid.*Mode-Pieces/i);
+  });
+
+  it('requires "Kein" not "Nicht" before nouns in German', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toMatch(/Kein.*not.*Nicht/i);
+    expect(prompt).toContain('Kein Standard-Merch');
+  });
+
+  it('instructs conservative gender inference with a neutral fallback', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toMatch(/Infer gender ONLY from common.*first names/i);
+    expect(prompt).toMatch(/Unsure.*unisex.*international.*shortened.*ambiguous/i);
+    expect(prompt).toMatch(/use exactly.*Ansprechpartner\/in/i);
+  });
+
+  it('does NOT inject German-only rules for an English lead', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).not.toMatch(/Always use the informal.*du.*form/);
+    expect(prompt).not.toMatch(/Kein.*not.*Nicht/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — prompt content: subject line rules
+// ---------------------------------------------------------------------------
+
+describe('buildPromptForTest — subject line rules', () => {
+  it('specifies 2-6 word punchy German subject rule', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toMatch(/2-6 words/);
+    expect(prompt).toMatch(/punchy/i);
+  });
+
+  it('specifies concise 5-9 word English subject rule', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toMatch(/5-9 words/);
+    expect(prompt).toMatch(/concise/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — prompt content: lead context
+// ---------------------------------------------------------------------------
+
 describe('buildPromptForTest — lead context', () => {
   it('includes the lead name, title, company, and country', () => {
     const prompt = buildPromptForTest(germanLead, template);
@@ -183,5 +278,34 @@ describe('buildPromptForTest — lead context', () => {
     expect(prompt).toContain('Head of Brand Experience');
     expect(prompt).toContain('Sixt');
     expect(prompt).toContain('Country: DE');
+  });
+
+  it('includes Company hook line with value when companyHook is present', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toContain(
+      'Company hook: A premium automotive accessories brand targeting urban professionals.',
+    );
+  });
+
+  it('shows em-dash placeholder when companyHook is null', () => {
+    const prompt = buildPromptForTest(germanLead, template);
+    expect(prompt).toContain('Company hook: —');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — prompt content: companyHook global rule
+// ---------------------------------------------------------------------------
+
+describe('buildPromptForTest — companyHook global rule', () => {
+  it('instructs Gemini to weave ONE concrete fact from the company hook', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toMatch(/Company hook.*weave ONE concrete fact/i);
+    expect(prompt).toMatch(/Do not list multiple facts/i);
+  });
+
+  it('instructs paraphrasing, not verbatim copy', () => {
+    const prompt = buildPromptForTest(englishLead, template);
+    expect(prompt).toMatch(/paraphrase naturally/i);
   });
 });

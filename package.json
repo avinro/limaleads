@@ -14,6 +14,7 @@
     "pipeline:once": "tsx src/scripts/runPipelineOnce.ts",
     "telegram:test": "tsx src/scripts/telegramTest.ts",
     "eval:emails": "tsx src/scripts/evaluateEmails.ts",
+    "apollo:poll": "tsx src/scripts/runApolloPollerOnce.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
