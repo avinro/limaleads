@@ -25,7 +25,7 @@ export interface LeadStatusEvent {
   created_at: string;
 }
 
-const VALID_STATUSES = new Set<string>([
+export const VALID_LEAD_STATUSES = new Set<string>([
   'new',
   'draft_created',
   'generation_failed',
@@ -57,7 +57,7 @@ export async function transitionLeadStatus(
   actor: LeadStatusActor,
   reason?: string,
 ): Promise<LeadStatusEvent> {
-  if (!VALID_STATUSES.has(toStatus)) {
+  if (!VALID_LEAD_STATUSES.has(toStatus)) {
     throw new Error(`Invalid toStatus: ${toStatus}`);
   }
 
