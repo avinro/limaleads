@@ -70,6 +70,16 @@ Follow the browser prompt. Copy the printed refresh token into `GMAIL_REFRESH_TO
 | `npm run lint:fix` | Auto-fix ESLint issues |
 | `npm run format` | Format `src/` with Prettier |
 | `npm run format:check` | Check formatting (used in CI) |
+| `npm run eval:emails` | Generate 20 sample Gemini emails (Atelierra voice, EN/DE based on lead country) and write a reviewer doc to `docs/eval-results-*.md` (AVI-17 quality gate) |
+
+## Lead language detection
+
+Leads have a nullable `country` column (ISO-2 code, e.g. `DE`, `AT`, `CH`, `GB`). Outreach language is derived in code via `detectLanguageFromCountry`:
+
+- `DE`, `AT`, `CH` → German
+- Anything else (or null) → English
+
+The active Supabase template (`Default B2B Outreach`) is still placeholder-based and unchanged in this issue. The Atelierra voice and language switching live in the Gemini prompt (`src/integrations/geminiClient.ts`) and the eval fixture (`src/scripts/evaluateEmails.ts`). They will be wired into the live pipeline by AVI-18.
 
 ## Project structure
 

@@ -65,18 +65,35 @@ function makeEnrichedPerson(overrides: object = {}) {
     email: 'jane@acme.com',
     title: 'CEO',
     linkedin_url: 'https://linkedin.com/in/janedoe',
-    organization: { name: 'Acme Corp' },
+    headline: 'CEO at Acme Corp | Building the future',
+    departments: ['executive'],
+    seniority: 'c_suite',
+    country: 'DE',
+    organization: {
+      name: 'Acme Corp',
+      short_description: 'A leading provider of widgets.',
+      industry: 'manufacturing',
+      keywords: ['widgets', 'b2b', 'industrial'],
+      technology_names: ['Salesforce'],
+      hq_country: 'DE',
+    },
     ...overrides,
   };
 }
 
 /** Build a chainable Supabase mock that returns the given insert result. */
-function makeSupabaseMock(insertResult: { data: { id: string } | null; error: unknown }) {
+function makeSupabaseMock(
+  insertResult: { data: { id: string } | null; error: unknown },
+  updateError: unknown = null,
+) {
   const maybeSingle = vi.fn().mockResolvedValue(insertResult);
   const select = vi.fn().mockReturnValue({ maybeSingle });
   const insert = vi.fn().mockReturnValue({ select });
-  const from = vi.fn().mockReturnValue({ insert });
-  return { from, insert, select, maybeSingle };
+  // Update chain: .update(...).eq(...)
+  const eq = vi.fn().mockResolvedValue({ error: updateError });
+  const update = vi.fn().mockReturnValue({ eq });
+  const from = vi.fn().mockReturnValue({ insert, update });
+  return { from, insert, select, maybeSingle, update, eq };
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +110,7 @@ describe('apolloPoller', () => {
     delete process.env.APOLLO_SOURCE_CRITERIA;
   });
 
-  it('inserts a new lead and seeds the status audit event', async () => {
+  it('inserts a new lead with enrichment fields and seeds the status audit event', async () => {
     vi.mocked(searchPeople).mockResolvedValueOnce(
       makeSearchPage([makeSearchPerson()]) as Awaited<ReturnType<typeof searchPeople>>,
     );
@@ -112,12 +129,74 @@ describe('apolloPoller', () => {
     expect(summary.duplicates).toBe(0);
     expect(summary.skipped).toBe(0);
 
+    // Verify enrichment fields were included in the insert call.
+    const insertArg = db.insert.mock.calls[0][0] as Record<string, unknown>;
+    expect(insertArg.company_hook).toBe('A leading provider of widgets.');
+    expect(insertArg.industry).toBe('manufacturing');
+    expect(insertArg.company_description).toBe('A leading provider of widgets.');
+    expect(insertArg.headline).toBe('CEO at Acme Corp | Building the future');
+    expect(insertArg.seniority).toBe('c_suite');
+    expect(insertArg.country).toBe('DE');
+    expect(typeof insertArg.apollo_enriched_at).toBe('string');
+
     expect(transitionLeadStatus).toHaveBeenCalledWith('lead-uuid-1', 'new', 'system');
     expect(logJob).toHaveBeenCalledWith(
       'apollo-poller',
       'success',
       expect.objectContaining({ created: 1 }),
     );
+  });
+
+  it('updates enrichment fields for duplicate leads without touching status', async () => {
+    vi.mocked(searchPeople).mockResolvedValueOnce(
+      makeSearchPage([makeSearchPerson()]) as Awaited<ReturnType<typeof searchPeople>>,
+    );
+    vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson());
+
+    // Insert returns null (ON CONFLICT DO NOTHING) → duplicate path.
+    const db = makeSupabaseMock({ data: null, error: null });
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
+
+    const summary = await runApolloPoller();
+
+    expect(summary.duplicates).toBe(1);
+    expect(summary.created).toBe(0);
+    expect(transitionLeadStatus).not.toHaveBeenCalled();
+
+    // Verify the update was called with enrichment fields.
+    expect(db.update).toHaveBeenCalledTimes(1);
+    const updateArg = db.update.mock.calls[0][0] as Record<string, unknown>;
+    expect(updateArg.company_hook).toBe('A leading provider of widgets.');
+    expect(updateArg.country).toBe('DE');
+    // Must NOT touch lifecycle fields.
+    expect(updateArg.status).toBeUndefined();
+    expect(updateArg.gmail_draft_id).toBeUndefined();
+    expect(updateArg.contacted_at).toBeUndefined();
+
+    // Update was matched by email.
+    expect(db.eq).toHaveBeenCalledWith('email', 'jane@acme.com');
+  });
+
+  it('source_criteria stores the original JSON criteria, not hook data', async () => {
+    vi.mocked(searchPeople).mockResolvedValueOnce(
+      makeSearchPage([makeSearchPerson()]) as Awaited<ReturnType<typeof searchPeople>>,
+    );
+    vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson());
+
+    const db = makeSupabaseMock({ data: { id: 'lead-uuid-3' }, error: null });
+    vi.mocked(getSupabaseClient).mockReturnValue(
+      db as unknown as ReturnType<typeof getSupabaseClient>,
+    );
+
+    await runApolloPoller();
+
+    const insertArg = db.insert.mock.calls[0][0] as Record<string, unknown>;
+    expect(typeof insertArg.source_criteria).toBe('string');
+    expect(insertArg.source_criteria).toBe(CRITERIA_JSON);
+    // Hook data must not be merged into source_criteria.
+    expect(insertArg.source_criteria).not.toContain('company_hook');
   });
 
   it('counts duplicate when INSERT returns null (ON CONFLICT DO NOTHING)', async () => {
@@ -135,7 +214,6 @@ describe('apolloPoller', () => {
 
     expect(summary.duplicates).toBe(1);
     expect(summary.created).toBe(0);
-    expect(transitionLeadStatus).not.toHaveBeenCalled();
   });
 
   it('skips a lead when has_email is false (no enrich call)', async () => {
@@ -213,24 +291,6 @@ describe('apolloPoller', () => {
     expect(summary.skipped).toBe(1);
     expect(summary.created).toBe(1);
     expect(summary.enriched).toBe(1);
-  });
-
-  it('stores source_criteria as a JSON string in the insert call', async () => {
-    vi.mocked(searchPeople).mockResolvedValueOnce(
-      makeSearchPage([makeSearchPerson()]) as Awaited<ReturnType<typeof searchPeople>>,
-    );
-    vi.mocked(enrichPerson).mockResolvedValueOnce(makeEnrichedPerson());
-
-    const db = makeSupabaseMock({ data: { id: 'lead-uuid-3' }, error: null });
-    vi.mocked(getSupabaseClient).mockReturnValue(
-      db as unknown as ReturnType<typeof getSupabaseClient>,
-    );
-
-    await runApolloPoller();
-
-    const insertArg = db.insert.mock.calls[0][0] as Record<string, unknown>;
-    expect(typeof insertArg.source_criteria).toBe('string');
-    expect(insertArg.source_criteria).toBe(CRITERIA_JSON);
   });
 
   it('logs started and success to job_log', async () => {

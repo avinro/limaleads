@@ -19,6 +19,19 @@ function getApiKey(): string {
 
 export interface ApolloOrganization {
   name: string | null;
+  // Rich context fields — populated by Enrich (/people/match) but also
+  // partially available in Search results. All optional/nullable because
+  // Apollo may omit or return null for any of them.
+  short_description?: string | null;
+  industry?: string | null;
+  keywords?: string[] | null;
+  technology_names?: string[] | null;
+  founded_year?: number | null;
+  latest_funding_stage?: string | null;
+  // Location/country hints — field names vary by Apollo API version.
+  country?: string | null;
+  hq_country?: string | null;
+  primary_domain?: string | null;
 }
 
 /** Shape of one result from POST /api/v1/mixed_people/api_search */
@@ -41,6 +54,14 @@ export interface ApolloEnrichedPerson {
   title: string | null;
   linkedin_url: string | null;
   organization: ApolloOrganization | null;
+  // Rich person-level context — populated by Enrich only.
+  headline?: string | null;
+  departments?: string[] | null;
+  seniority?: string | null;
+  // Location/country hints.
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
 }
 
 /** Apollo filter parameters — matches the search endpoint body fields from the spike. */
