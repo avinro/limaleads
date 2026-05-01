@@ -15,6 +15,7 @@
     "telegram:test": "tsx src/scripts/telegramTest.ts",
     "eval:emails": "tsx src/scripts/evaluateEmails.ts",
     "apollo:poll": "tsx src/scripts/runApolloPollerOnce.ts",
+    "sent:once": "tsx src/scripts/runSentDetectionOnce.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
