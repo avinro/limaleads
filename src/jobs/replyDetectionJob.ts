@@ -63,21 +63,29 @@ export interface ReplyDetectionSummary {
   capped: boolean;
 }
 
+/** Extends the base Gmail-reply input with lead context needed for notifications. */
+export interface PendingReplyLead extends LeadReplyInput {
+  name: string | null;
+  company: string | null;
+  title: string | null;
+}
+
 /**
  * AVI-22 injection point.
- * AVI-21 calls this with the lead and reply data after a successful transition.
- * Replace the no-op default in index.ts with the Telegram notifier in AVI-22.
+ * Called after a successful transition to 'replied'.
+ * Receives enriched lead data (name/company/title) so the notifier can build
+ * a rich Telegram message without an extra DB query.
  */
-export type ReplyCallback = (lead: LeadReplyInput, reply: ReplyResult) => Promise<void>;
+export type ReplyCallback = (lead: PendingReplyLead, reply: ReplyResult) => Promise<void>;
 
 // ---------------------------------------------------------------------------
 // DB helpers
 // ---------------------------------------------------------------------------
 
-async function fetchPendingReplyLeads(maxLeads: number): Promise<LeadReplyInput[]> {
+async function fetchPendingReplyLeads(maxLeads: number): Promise<PendingReplyLead[]> {
   const { data, error } = await getSupabaseClient()
     .from('leads')
-    .select('id, email, gmail_thread_id, contacted_at')
+    .select('id, email, gmail_thread_id, contacted_at, name, company, title')
     .in('status', ['contacted', 'follow_up_sent'])
     .not('gmail_thread_id', 'is', null)
     .order('contacted_at', { ascending: true })
@@ -87,7 +95,7 @@ async function fetchPendingReplyLeads(maxLeads: number): Promise<LeadReplyInput[
     throw new Error(`Failed to query reply-pending leads: ${error.message}`);
   }
 
-  return (data ?? []) as LeadReplyInput[];
+  return (data ?? []) as PendingReplyLead[];
 }
 
 /**
@@ -133,7 +141,7 @@ export async function runReplyDetection(
 
   await logJob(JOB_TYPE, 'started', {});
 
-  let leads: LeadReplyInput[];
+  let leads: PendingReplyLead[];
   try {
     leads = await fetchPendingReplyLeads(maxLeads);
   } catch (error) {
