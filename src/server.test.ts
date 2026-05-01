@@ -12,6 +12,15 @@ vi.mock('./db/client', () => ({
   getSupabaseClient: vi.fn(),
 }));
 
+vi.mock('./lib/jobState', () => ({
+  getLastJobRun: vi.fn(() => ({
+    apolloCycle: null,
+    sentDetection: null,
+    followUpScheduler: null,
+    replyDetection: null,
+  })),
+}));
+
 vi.mock('./lib/leadStatus', () => ({
   VALID_LEAD_STATUSES: new Set([
     'new',
@@ -122,6 +131,19 @@ describe('GET /health', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ status: 'ok' });
     expect(typeof res.body.uptime).toBe('number');
+  });
+
+  it('includes per-job lastJobRun object with all jobs null on cold start', async () => {
+    const app = createApp();
+    const res = await request(app).get('/health');
+
+    expect(res.status).toBe(200);
+    expect(res.body.lastJobRun).toMatchObject({
+      apolloCycle: null,
+      sentDetection: null,
+      followUpScheduler: null,
+      replyDetection: null,
+    });
   });
 
   it('does not require auth', async () => {

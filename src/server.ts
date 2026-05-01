@@ -13,6 +13,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 
 import { getSupabaseClient } from './db/client';
 import { serializeError } from './lib/errors';
+import { getLastJobRun } from './lib/jobState';
 import { VALID_LEAD_STATUSES, transitionLeadStatus, type LeadStatus } from './lib/leadStatus';
 
 // ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ export function createApp(): express.Express {
   // -------------------------------------------------------------------------
 
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+    res.json({ status: 'ok', uptime: process.uptime(), lastJobRun: getLastJobRun() });
   });
 
   // -------------------------------------------------------------------------

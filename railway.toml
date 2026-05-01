@@ -1,0 +1,15 @@
+# Architecture decision: single always-on worker process, not Railway Cron Jobs.
+#
+# Railway Cron Jobs would require one service per job (4 services), spread
+# the overlap guards across separate processes, and add operational complexity
+# with no benefit at this scale. A single Node.js process with setInterval /
+# setTimeout is simpler, cheaper, and fully crash-resistant via restartPolicy.
+
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
