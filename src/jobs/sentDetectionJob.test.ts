@@ -70,10 +70,7 @@ const SENT_RESULT_EDITED = {
  * chain resolves with the given data for queries, and whose update().eq()
  * and select().eq().maybeSingle() chains resolve for writes.
  */
-function makeSupabaseMock(
-  leads: typeof BASE_LEAD[],
-  followUpCount: number = 0,
-): void {
+function makeSupabaseMock(leads: (typeof BASE_LEAD)[], followUpCount: number = 0): void {
   // Select chain: .select().in().order().limit()
   const limit = vi.fn().mockResolvedValue({ data: leads, error: null });
   const order = vi.fn().mockReturnValue({ limit });
@@ -98,14 +95,12 @@ function makeSupabaseMock(
 /**
  * Like makeSupabaseMock but makes the update call return an error.
  */
-function makeSupabaseMockWithUpdateError(leads: typeof BASE_LEAD[], errorMsg: string): void {
+function makeSupabaseMockWithUpdateError(leads: (typeof BASE_LEAD)[], errorMsg: string): void {
   const limit = vi.fn().mockResolvedValue({ data: leads, error: null });
   const order = vi.fn().mockReturnValue({ limit });
   const inFilter = vi.fn().mockReturnValue({ order });
 
-  const maybeSingle = vi
-    .fn()
-    .mockResolvedValue({ data: { follow_up_count: 0 }, error: null });
+  const maybeSingle = vi.fn().mockResolvedValue({ data: { follow_up_count: 0 }, error: null });
   const eqMaybeSingle = vi.fn().mockReturnValue({ maybeSingle });
 
   const select = vi.fn().mockReturnValue({ in: inFilter, eq: eqMaybeSingle });

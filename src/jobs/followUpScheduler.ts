@@ -207,11 +207,7 @@ async function persistFollowUpDraft(
 // Alert helper
 // ---------------------------------------------------------------------------
 
-async function alertFollowUpFailed(
-  leadId: string,
-  step: string,
-  error: unknown,
-): Promise<void> {
+async function alertFollowUpFailed(leadId: string, step: string, error: unknown): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
   const text = `[AVI-20] follow_up_failed lead=${leadId} step=${step} error=${message}`;
 
@@ -320,13 +316,7 @@ export async function runFollowUpScheduler(): Promise<FollowUpSummary> {
 
     // --- Persist draft snapshot + transition ---
     try {
-      await persistFollowUpDraft(
-        lead.id,
-        draftResult.draftId,
-        draftResult.threadId,
-        subject,
-        body,
-      );
+      await persistFollowUpDraft(lead.id, draftResult.draftId, draftResult.threadId, subject, body);
       await transitionLeadStatus(lead.id, 'follow_up_scheduled', 'system');
       summary.drafted += 1;
       await logJob(JOB_TYPE, 'success', {

@@ -26,7 +26,10 @@
 // so the worker can surface them.
 
 import { getSupabaseClient } from '../db/client';
-import { findSentMessageForLead, type LeadCorrelationInput } from '../integrations/gmailCorrelation';
+import {
+  findSentMessageForLead,
+  type LeadCorrelationInput,
+} from '../integrations/gmailCorrelation';
 import { serializeError } from '../lib/errors';
 import { transitionLeadStatus } from '../lib/leadStatus';
 import { logJob } from '../lib/logger';
@@ -43,9 +46,7 @@ function getMaxLeads(): number {
   if (!raw) return DEFAULT_MAX_LEADS;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1 || !Number.isInteger(parsed)) {
-    console.warn(
-      `Invalid GMAIL_SENT_POLL_MAX_LEADS "${raw}"; using default ${DEFAULT_MAX_LEADS}`,
-    );
+    console.warn(`Invalid GMAIL_SENT_POLL_MAX_LEADS "${raw}"; using default ${DEFAULT_MAX_LEADS}`);
     return DEFAULT_MAX_LEADS;
   }
   return parsed;
@@ -88,10 +89,7 @@ async function fetchPendingSentLeads(maxLeads: number): Promise<LeadCorrelationI
  * Called before transitionLeadStatus so the timestamps are always set
  * even if the RPC retries on the next poll cycle.
  */
-async function persistContactedFields(
-  leadId: string,
-  editedBeforeSend: boolean,
-): Promise<void> {
+async function persistContactedFields(leadId: string, editedBeforeSend: boolean): Promise<void> {
   const { error } = await getSupabaseClient()
     .from('leads')
     .update({
@@ -111,10 +109,7 @@ async function persistContactedFields(
  * Called before transitionLeadStatus so the timestamps are always set
  * even if the RPC retries on the next poll cycle.
  */
-async function persistFollowUpSentFields(
-  leadId: string,
-  editedBeforeSend: boolean,
-): Promise<void> {
+async function persistFollowUpSentFields(leadId: string, editedBeforeSend: boolean): Promise<void> {
   // follow_up_count is incremented here (not at draft creation) to count
   // actual sends, not drafts. The increment uses a raw supabase RPC-style
   // expression; we fetch the current value first to do it safely in TypeScript
