@@ -1,7 +1,9 @@
-// Main worker entrypoint — orchestrates all scheduled jobs.
+// Main worker entrypoint — orchestrates all scheduled jobs and starts the
+// admin HTTP server (GET /health + POST /admin/leads/:id/status).
 // New jobs are registered here as the system grows.
 
 import { notifyLeadReply } from './integrations/telegramNotifier';
+import { createApp } from './server';
 import { runApolloPoller } from './jobs/apolloPoller';
 import { runDraftJob } from './jobs/draftJob';
 import { runFollowUpScheduler } from './jobs/followUpScheduler';
@@ -204,6 +206,11 @@ async function runFollowUpTick(): Promise<void> {
 
 async function main(): Promise<void> {
   console.log('LimaLeads worker started');
+
+  const PORT = Number(process.env.PORT ?? 3000);
+  createApp().listen(PORT, () => {
+    console.log(`Admin server listening on :${PORT}`);
+  });
 
   // Run all jobs immediately on startup, then on their respective intervals.
   await runCycle();
