@@ -301,7 +301,7 @@ describe('notifyLeadReply', () => {
 
     // Exact shape from production: entities + "El ... escribió:" separator
     const rawSnippet =
-      "Hey I love the idea. Let&#39;s work together. El lun, 4 may 2026 a las 12:23, Ary Vincench (&lt;avinroart@gmail.com&gt;) escribió: Hi Elena Martínez, Just following up on my note about fashion-level";
+      'Hey I love the idea. Let&#39;s work together. El lun, 4 may 2026 a las 12:23, Ary Vincench (&lt;avinroart@gmail.com&gt;) escribió: Hi Elena Martínez, Just following up on my note about fashion-level';
 
     await notifyLeadReply({
       ...BASE_INPUT,
