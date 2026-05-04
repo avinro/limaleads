@@ -48,8 +48,14 @@ export interface GmailMessage {
 
 /**
  * Encodes an email message as RFC 2822 base64url string required by the Gmail API.
+ *
+ * @param rfc2822MessageId - The RFC 2822 Message-ID of the original email to reply to
+ *   (looks like <CABcXX...@mail.gmail.com>). When set, adds In-Reply-To and References
+ *   headers so the recipient's email client threads the messages together. Do NOT pass
+ *   a Gmail internal threadId here — that is a different identifier and not recognised
+ *   by external mail servers.
  */
-function encodeEmail(options: SendEmailOptions, threadId?: string): string {
+function encodeEmail(options: SendEmailOptions, rfc2822MessageId?: string): string {
   const headers = [
     `To: ${options.to}`,
     `Subject: ${options.subject}`,
@@ -57,10 +63,9 @@ function encodeEmail(options: SendEmailOptions, threadId?: string): string {
     'Content-Type: text/plain; charset=utf-8',
   ];
 
-  if (threadId) {
-    // Thread-ID header keeps the reply in the same Gmail conversation
-    headers.push(`In-Reply-To: ${threadId}`);
-    headers.push(`References: ${threadId}`);
+  if (rfc2822MessageId) {
+    headers.push(`In-Reply-To: ${rfc2822MessageId}`);
+    headers.push(`References: ${rfc2822MessageId}`);
   }
 
   const raw = [...headers, '', options.body].join('\r\n');
@@ -70,6 +75,37 @@ function encodeEmail(options: SendEmailOptions, threadId?: string): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
+}
+
+// ---------------------------------------------------------------------------
+// Thread helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the RFC 2822 Message-ID header of the first message in a Gmail thread.
+ * This is the value that must appear in In-Reply-To / References headers of a
+ * reply so that the recipient's mail server threads the messages together.
+ *
+ * Returns null when the thread has no messages or the header is absent.
+ */
+async function getRfc2822MessageIdFromThread(
+  gmail: ReturnType<typeof google.gmail>,
+  threadId: string,
+): Promise<string | null> {
+  const thread = await gmail.users.threads.get({
+    userId: 'me',
+    id: threadId,
+    format: 'metadata',
+    metadataHeaders: ['Message-ID'],
+  });
+
+  const messages = thread.data.messages ?? [];
+
+  if (messages.length === 0) return null;
+
+  const headers = messages[0].payload?.headers ?? [];
+
+  return headers.find((h) => h.name?.toLowerCase() === 'message-id')?.value ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,11 +135,22 @@ export async function createGmailDraft(options: SendEmailOptions): Promise<Draft
   const auth = getOAuth2Client();
   const gmail = google.gmail({ version: 'v1', auth });
 
+  // When creating a follow-up draft in an existing thread, fetch the RFC 2822
+  // Message-ID of the first message so In-Reply-To/References are set correctly.
+  // This is what makes the recipient's mail client thread the messages together.
+  // The Gmail-internal threadId alone is not recognised by external mail servers.
+  let rfc2822MessageId: string | undefined;
+
+  if (options.threadId) {
+    rfc2822MessageId = (await getRfc2822MessageIdFromThread(gmail, options.threadId)) ?? undefined;
+  }
+
   const response = await gmail.users.drafts.create({
     userId: 'me',
     requestBody: {
       message: {
-        raw: encodeEmail(options),
+        raw: encodeEmail(options, rfc2822MessageId),
+        threadId: options.threadId,
       },
     },
   });
@@ -130,7 +177,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SentEmail> {
   const response = await gmail.users.messages.send({
     userId: 'me',
     requestBody: {
-      raw: encodeEmail(options, options.threadId),
+      raw: encodeEmail(options),
       threadId: options.threadId,
     },
   });

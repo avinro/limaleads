@@ -170,8 +170,14 @@ async function updateLeadEnrichment(params: EnrichmentFields): Promise<void> {
  * @param maxPages - Optional upper bound on pages fetched. Defaults to Infinity
  *   (fetch all). Set to a low value (e.g. 1) for manual/CLI runs to limit
  *   Apollo credit consumption.
+ * @param perPage - Results per page sent to Apollo search. Defaults to
+ *   DEFAULT_PER_PAGE (100). Pass a smaller value (e.g. DEMO_DEFAULT_PER_PAGE)
+ *   to cap Apollo credit usage during demo runs.
  */
-export async function runApolloPoller(maxPages = Infinity): Promise<PollSummary> {
+export async function runApolloPoller(
+  maxPages = Infinity,
+  perPage = DEFAULT_PER_PAGE,
+): Promise<PollSummary> {
   const summary: PollSummary = {
     fetched: 0,
     enriched: 0,
@@ -190,7 +196,7 @@ export async function runApolloPoller(maxPages = Infinity): Promise<PollSummary>
 
     while (hasMore) {
       // Fetch one page of search results — retried on transient errors.
-      const searchPage = await runWithRetry(() => searchPeople(criteria, page, DEFAULT_PER_PAGE), {
+      const searchPage = await runWithRetry(() => searchPeople(criteria, page, perPage), {
         maxAttempts: MAX_ATTEMPTS,
         backoffMs: BACKOFF_MS,
         jobType: JOB_TYPE,
