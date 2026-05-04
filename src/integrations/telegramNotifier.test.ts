@@ -18,6 +18,7 @@ import { logJob } from '../lib/logger';
 // Fixtures
 // ---------------------------------------------------------------------------
 
+// 2026-05-01T17:00:00.000Z → Europe/Madrid CEST (UTC+2) = 19:00 = 7:00 PM
 const BASE_INPUT = {
   lead: {
     id: 'lead-uuid-1',
@@ -164,6 +165,26 @@ describe('notifyLeadReply', () => {
     process.env = originalEnv;
   });
 
+  // ─── Layout ───────────────────────────────────────────────────────────────
+
+  it('renders Lead replied: on its own line, then identity, then timestamp', async () => {
+    mockFetchOk();
+
+    await notifyLeadReply(BASE_INPUT);
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const lines = (body.text as string).split('\n');
+
+    expect(lines[0]).toBe('<b>Lead replied:</b>');
+    expect(lines[1]).toContain('John Lead');
+    expect(lines[1]).toContain('CEO');
+    expect(lines[1]).toContain('Acme Corp');
+    expect(lines[2]).toMatch(/^<i>.+<\/i>$/);
+    expect(lines[3]).toBe('');
+    expect(lines[4]).toContain('"Thanks for reaching out!"');
+  });
+
   // ─── Happy path ──────────────────────────────────────────────────────────
 
   it('sends a single HTML message with escaped lead fields, snippet, link, and timestamp', async () => {
@@ -175,15 +196,24 @@ describe('notifyLeadReply', () => {
     const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/sendMessage');
 
-    const body = JSON.parse(options.body as string) as Record<string, string>;
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
     expect(body.parse_mode).toBe('HTML');
-    expect(body.text).toContain('John Lead');
-    expect(body.text).toContain('CEO');
-    expect(body.text).toContain('Acme Corp');
-    expect(body.text).toContain('Thanks for reaching out!');
-    expect(body.text).toContain('2026-05-01T17:00:00.000Z');
-    expect(body.text).toContain('mail.google.com/mail/u/0/#all/');
-    expect(body.text).toContain(encodeURIComponent('thread-abc'));
+
+    const text = body.text as string;
+    expect(text).toContain('John Lead');
+    expect(text).toContain('CEO');
+    expect(text).toContain('Acme Corp');
+    expect(text).toContain('Thanks for reaching out!');
+    // 2026-05-01T17:00:00Z in Europe/Madrid CEST (UTC+2) = 19:00 = 7:00 PM
+    expect(text).toContain('2026-05-01 · 7:00 PM');
+
+    // Gmail link lives in the inline keyboard button, not in the message text
+    const replyMarkup = body.reply_markup as {
+      inline_keyboard: Array<Array<{ text: string; url: string }>>;
+    };
+    expect(replyMarkup.inline_keyboard[0][0].url).toContain('mail.google.com/mail/u/0/#all/');
+    expect(replyMarkup.inline_keyboard[0][0].url).toContain(encodeURIComponent('thread-abc'));
+    expect(replyMarkup.inline_keyboard[0][0].text).toBe('📬 Open in Gmail');
   });
 
   it('HTML-escapes special characters in lead fields', async () => {
@@ -195,11 +225,12 @@ describe('notifyLeadReply', () => {
     });
 
     const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as Record<string, string>;
-    expect(body.text).toContain('&lt;Evil&gt;');
-    expect(body.text).toContain('A&amp;B');
-    expect(body.text).toContain('&quot;Founder&quot;');
-    expect(body.text).not.toContain('<Evil>');
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const text = body.text as string;
+    expect(text).toContain('&lt;Evil&gt;');
+    expect(text).toContain('A&amp;B');
+    expect(text).toContain('&quot;Founder&quot;');
+    expect(text).not.toContain('<Evil>');
   });
 
   it('truncates snippet to 200 characters', async () => {
@@ -213,10 +244,11 @@ describe('notifyLeadReply', () => {
     });
 
     const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as Record<string, string>;
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const text = body.text as string;
     // snippet is escaped then appears quoted; check the 'x' run is ≤200 chars
-    expect(body.text).toContain('x'.repeat(200));
-    expect(body.text).not.toContain('x'.repeat(201));
+    expect(text).toContain('x'.repeat(200));
+    expect(text).not.toContain('x'.repeat(201));
   });
 
   it('uses null-safe fallbacks for missing lead fields', async () => {
@@ -228,8 +260,124 @@ describe('notifyLeadReply', () => {
     });
 
     const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(options.body as string) as Record<string, string>;
-    expect(body.text).toContain('Unknown');
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    expect(body.text as string).toContain('Unknown');
+  });
+
+  // ─── Timestamp formatting ─────────────────────────────────────────────────
+
+  it('formats repliedAt in Europe/Madrid — CET (winter, UTC+1)', async () => {
+    mockFetchOk();
+
+    // 2026-01-15T10:00:00Z → CET (UTC+1) = 11:00 AM
+    await notifyLeadReply({
+      ...BASE_INPUT,
+      reply: { ...BASE_INPUT.reply, repliedAt: new Date('2026-01-15T10:00:00.000Z') },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    expect(body.text as string).toContain('2026-01-15 · 11:00 AM');
+  });
+
+  it('formats repliedAt in Europe/Madrid — CEST (summer, UTC+2)', async () => {
+    mockFetchOk();
+
+    // 2026-07-15T10:00:00Z → CEST (UTC+2) = 12:00 PM
+    await notifyLeadReply({
+      ...BASE_INPUT,
+      reply: { ...BASE_INPUT.reply, repliedAt: new Date('2026-07-15T10:00:00.000Z') },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    expect(body.text as string).toContain('2026-07-15 · 12:00 PM');
+  });
+
+  // ─── Snippet cleanup ──────────────────────────────────────────────────────
+
+  it('strips quoted Spanish thread history (real Gmail snippet shape)', async () => {
+    mockFetchOk();
+
+    // Exact shape from production: entities + "El ... escribió:" separator
+    const rawSnippet =
+      "Hey I love the idea. Let&#39;s work together. El lun, 4 may 2026 a las 12:23, Ary Vincench (&lt;avinroart@gmail.com&gt;) escribió: Hi Elena Martínez, Just following up on my note about fashion-level";
+
+    await notifyLeadReply({
+      ...BASE_INPUT,
+      reply: { ...BASE_INPUT.reply, snippet: rawSnippet },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const text = body.text as string;
+
+    // Only the lead's actual reply should appear
+    expect(text).toContain("Hey I love the idea. Let's work together.");
+    expect(text).not.toContain('escribi');
+    expect(text).not.toContain('Just following up');
+    expect(text).not.toContain('avinroart@gmail.com');
+  });
+
+  it('strips quoted English thread history (On ... wrote: pattern)', async () => {
+    mockFetchOk();
+
+    const rawSnippet =
+      'Sounds great! On Mon, 4 May 2026 at 10:23, Ary Vincench <ary@example.com> wrote: Hi there, just reaching out to say hello.';
+
+    await notifyLeadReply({
+      ...BASE_INPUT,
+      reply: { ...BASE_INPUT.reply, snippet: rawSnippet },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const text = body.text as string;
+
+    expect(text).toContain('Sounds great!');
+    expect(text).not.toContain('reaching out to say hello');
+  });
+
+  it('falls back to decoded snippet when stripping removes everything (bottom-posting)', async () => {
+    mockFetchOk();
+
+    // Snippet starts with the separator — stripping leaves nothing
+    const rawSnippet =
+      'On Mon, 4 May 2026 at 10:23, Ary Vincench <ary@example.com> wrote: Let them reply below this line.';
+
+    await notifyLeadReply({
+      ...BASE_INPUT,
+      reply: { ...BASE_INPUT.reply, snippet: rawSnippet },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const text = body.text as string;
+
+    // Message must not show empty quotes — fallback keeps the full decoded text
+    expect(text).not.toMatch(/""\s*\n/);
+    expect(text).toContain('On Mon');
+  });
+
+  it('decodes numeric HTML entities (&#34;) and &nbsp; in the snippet', async () => {
+    mockFetchOk();
+
+    await notifyLeadReply({
+      ...BASE_INPUT,
+      reply: {
+        ...BASE_INPUT.reply,
+        snippet: 'Hello&#34;world&#34; and&nbsp;more',
+      },
+    });
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string) as Record<string, unknown>;
+    const text = body.text as string;
+
+    // &#34; is a double-quote → htmlEscape'd to &quot; in Telegram HTML
+    expect(text).toContain('Hello&quot;world&quot;');
+    // &nbsp; becomes a regular space → normalized
+    expect(text).toContain('and more');
   });
 
   // ─── Retry logic ─────────────────────────────────────────────────────────
